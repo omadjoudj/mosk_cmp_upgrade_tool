@@ -15,8 +15,6 @@ import re
 import os
 import socket
 
-from pprint import pprint
-
 TOOL_NAME="custom-opscare-openstack-cmp-upgrade-tool"
 CLOUD=os.getenv("CLOUD")
 OPENSTACK_EXTRA_ARGS=os.getenv('OPENSTACK_EXTRA_ARGS', 
@@ -135,36 +133,34 @@ def check_nodeworkloadlock(cmp):
     )
     
     if result.returncode != 0:
-        logging.error(f"kubectl command failed: {result.stderr}")
         return False
     else:
         return True
 
 def remove_nodeworkloadlock(cmp):
     logging.info(f"Removing NodeWorkloadLock for {cmp}")
-    cmd = ['kubectl',  "--context", f"mosk-{CLOUD}", 'delete', 'nodeworkloadlock', '--grace-period=0', f"{TOOL_NAME}-{cmp}"]  
+    cmd = f"kubectl --context mosk-{CLOUD} delete nodeworkloadlock --grace-period=0 {TOOL_NAME}-{cmp}"
     result = subprocess.run(
         cmd,
         capture_output=True,
         shell=True
     )
-    pprint(result)
     if result.returncode != 0:
         logging.error(f"kubectl command failed: {result.stderr}")
         return False
     else:
         return True
 
-def node_safe_release_lock():
+def node_safe_release_lock(cmp):
     pass
 
-def lock_all_nodes():
+def lock_all_nodes(inventory):
     pass
 
-def check_locks_all_nodes():
+def check_locks_all_nodes(inventory):
     pass
 
-def rack_silence_alert():
+def rack_silence_alert(rack):
     pass
 
 def get_vm_info(vm_id):

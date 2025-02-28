@@ -2,7 +2,8 @@ import pytest
 import cmp_upgrade_tool
 import re
 
-""" def test_func_get_mosk_cluster_ns():
+"""
+def test_func_get_mosk_cluster_ns():
     r = cmp_upgrade_tool.get_mosk_cluster_ns()
     assert r == "lon1-dev-mos001"
 
@@ -40,8 +41,8 @@ def test_get_reverse_dns():
     for ip in fqdn_to_ip.keys():
         assert cmp_upgrade_tool.get_reverse_dns(ip) == fqdn_to_ip[ip]
 
-
 """
+
 def test_create_nodeworkloadlock():
     cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
     cmp_upgrade_tool.create_nodeworkloadlock(cmp)
