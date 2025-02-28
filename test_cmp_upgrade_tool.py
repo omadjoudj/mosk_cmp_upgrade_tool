@@ -18,8 +18,37 @@ def test_func_get_cmp_inventory():
 def test_get_vms_in_host():
     cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
     vms=cmp_upgrade_tool.get_vms_in_host(cmp)
-    assert any(vm['Name'] == ("healthcheck_SNAT_%s" % cmp) for vm in vms) """
+    assert any(vm['Name'] == ("healthcheck_SNAT_%s" % cmp) for vm in vms)
 
 def test_func_check_cmp_upgrade_readiness():
     cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
     assert cmp_upgrade_tool.check_cmp_upgrade_readiness(cmp) == False
+
+def test_get_vm_info():
+    vm_id="0e330637-00ee-4a64-82cb-ba34683bd45e"
+    cmp_upgrade_tool.get_vm_info(vm_id)
+
+def test_get_project_info():
+    prj_name="threekvm-2"
+    cmp_upgrade_tool.get_project_info(prj_name)
+
+def test_get_reverse_dns():
+    fqdn_to_ip = {
+        '8.8.8.8': 'dns.google',
+        '1.1.1.1': 'one.one.one.one'
+    }
+    for ip in fqdn_to_ip.keys():
+        assert cmp_upgrade_tool.get_reverse_dns(ip) == fqdn_to_ip[ip]
+
+
+"""
+def test_create_nodeworkloadlock():
+    cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
+    cmp_upgrade_tool.create_nodeworkloadlock(cmp)
+    assert cmp_upgrade_tool.check_nodeworkloadlock(cmp)
+
+
+def test_remove_nodeworkloadlock():
+    cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
+    cmp_upgrade_tool.remove_nodeworkloadlock(cmp)
+    assert cmp_upgrade_tool.check_nodeworkloadlock(cmp) == False

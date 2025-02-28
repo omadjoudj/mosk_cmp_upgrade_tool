@@ -1,7 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Customization owner: omadjoudj
 
-## NOTE: openstack client and kubectl are used directly instead of corresponding Python libraries to reduce the dependencies on external libraries
+## NOTE:
+
+# openstack client and kubectl are used directly instead of corresponding Python libraries to reduce the dependencies on external libraries
+
+# This script is used by trusted users, data validation was skipped
 
 import argparse
 import json
@@ -9,12 +13,14 @@ import logging
 import subprocess
 import re
 import os
+import socket
 
-
+from pprint import pprint
 
 TOOL_NAME="custom-opscare-openstack-cmp-upgrade-tool"
 CLOUD=os.getenv("CLOUD")
-
+OPENSTACK_EXTRA_ARGS=os.getenv('OPENSTACK_EXTRA_ARGS', 
+                            f'--os-auth-type v3token --os-token "{os.getenv("OS_AUTH_TOKEN")}"')
 
 def check_cmp_upgrade_readiness(cmp):
     vms = get_vms_in_host(cmp)
@@ -26,10 +32,8 @@ def check_cmp_upgrade_readiness(cmp):
         return False
 
 def get_vms_in_host(cmp):
-    openstack_extra_args = os.getenv('OPENSTACK_EXTRA_ARGS', 
-                                f'--os-auth-type v3token --os-token "{os.getenv("OS_AUTH_TOKEN")}"')
-    cmd = f"openstack {openstack_extra_args} server list --all -n -f json --limit 100000000000 --host {cmp}"
-    
+    cmd = f"openstack {OPENSTACK_EXTRA_ARGS} server list --all -n -f json --limit 100000000000 --host {cmp}"
+    #TODO: Move this to a function to make it less verbose 
     result = subprocess.run(
         cmd,
         shell=True,
@@ -41,9 +45,6 @@ def get_vms_in_host(cmp):
     
     return json.loads(result.stdout)
         
-def node_safe_release_lock():
-    pass
-
 def check_env():
     cmd = ["kubectl", "config", "get-contexts"]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -70,14 +71,13 @@ def get_cmp_inventory():
     cmd = ['kubectl', "--context", f"mcc-{CLOUD}", 'get', 'machine', '-A',  '-o', 'custom-columns=NAME:.metadata.name,INSTANCE:.status.instanceName']
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise RuntimeError(f"kubectl command failed: {result.stderr}")
+        logging.error(f"kubectl command failed: {result.stderr}")
+        return False
     inventory = [' '.join(node.split()).split() for node in result.stdout.split("\n") if 'cmp' in node]
 
     # Get AZs
     logging.info("Getting AZs information")
-    openstack_extra_args = os.getenv('OPENSTACK_EXTRA_ARGS', 
-                                f'--os-auth-type v3token --os-token "{os.getenv("OS_AUTH_TOKEN")}"')
-    cmd = f"openstack {openstack_extra_args} availability zone list --long -f json"
+    cmd = f"openstack {OPENSTACK_EXTRA_ARGS} availability zone list --long -f json"
         
     result = subprocess.run(
             cmd,
@@ -89,7 +89,8 @@ def get_cmp_inventory():
         )
     
     if result.returncode != 0:
-        raise RuntimeError(f"openstack command failed: {result.stderr}")
+        logging.error(f"openstack command failed: {result.stderr}")
+        return False
     azs = json.loads(result.stdout)
     for line in inventory:
         line.append(get_az_for_host(line[1], azs))
@@ -98,13 +99,63 @@ def get_cmp_inventory():
     logging.debug(inventory)
     return inventory
 
-def create_nodeworkloadlock():
-    pass
+def create_nodeworkloadlock(cmp):
+    lock_obj_yaml = f"""
+    apiVersion: lcm.mirantis.com/v1alpha1
+    kind: NodeWorkloadLock
+    metadata:
+        name: {TOOL_NAME}-{cmp}
+    spec:
+        nodeName: {cmp}
+        controllerName: {TOOL_NAME}
+    """
+    
+    logging.info(f"Creating NodeWorkloadLock for {cmp}")
 
-def remove_nodeworkloadlock():
-    pass
+    cmd = ['kubectl',  "--context", f"mosk-{CLOUD}",'apply', '-f', '-']  
+    result = subprocess.run(
+        cmd,
+        input=lock_obj_yaml,     
+        capture_output=True,
+        text=True                         
+    )
+    
+    if result.returncode != 0:
+        logging.error(f"kubectl command failed: {result.stderr}")
+        return False
+    return result.stdout
 
-def check_nodeworkloadlock():
+
+def check_nodeworkloadlock(cmp):
+    cmd = ['kubectl',  "--context", f"mosk-{CLOUD}", 'get', 'nodeworkloadlock', f"{TOOL_NAME}-{cmp}"]  
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True                         
+    )
+    
+    if result.returncode != 0:
+        logging.error(f"kubectl command failed: {result.stderr}")
+        return False
+    else:
+        return True
+
+def remove_nodeworkloadlock(cmp):
+    logging.info(f"Removing NodeWorkloadLock for {cmp}")
+    cmd = ['kubectl',  "--context", f"mosk-{CLOUD}", 'delete', 'nodeworkloadlock', '--grace-period=0', f"{TOOL_NAME}-{cmp}"]  
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        shell=True
+    )
+    pprint(result)
+    if result.returncode != 0:
+        logging.error(f"kubectl command failed: {result.stderr}")
+        return False
+    else:
+        return True
+
+def node_safe_release_lock():
     pass
 
 def lock_all_nodes():
@@ -116,6 +167,54 @@ def check_locks_all_nodes():
 def rack_silence_alert():
     pass
 
+def get_vm_info(vm_id):
+    cmd = f"openstack {OPENSTACK_EXTRA_ARGS} server show -f json {vm_id}"
+        
+    result = subprocess.run(
+            cmd,
+            shell=True,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+    
+    if result.returncode != 0:
+        logging.error(f"openstack command failed: {result.stderr}")
+        return False
+    
+    vm_info = json.loads(result.stdout)
+    logging.debug(vm_info)
+    return vm_info
+
+def get_project_info(project_id_or_name):
+    cmd = f"openstack {OPENSTACK_EXTRA_ARGS} project show -f json {project_id_or_name}"
+        
+    result = subprocess.run(
+            cmd,
+            shell=True,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+    
+    if result.returncode != 0:
+        logging.error(f"openstack command failed: {result.stderr}")
+        return False
+    
+    project_info = json.loads(result.stdout)
+    logging.debug(project_info)
+    return project_info
+
+
+def get_reverse_dns(ip):
+    try:
+        fqdn = socket.gethostbyaddr(ip)[0]
+    except socket.herror:
+        fqdn = None
+    logging.debug(fqdn)
+    return fqdn
 
 
 def main():
