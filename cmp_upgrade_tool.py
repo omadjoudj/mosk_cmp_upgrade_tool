@@ -7,15 +7,19 @@
 
 # This script is used by trusted users, data validation was skipped
 
+#TODO: Move run commands to a function to make it less verbose 
+
 import argparse
 import json
 import logging
 import subprocess
 import re
 import os
+import sys
 import socket
 
 TOOL_NAME="custom-opscare-openstack-cmp-upgrade-tool"
+USER=os.getenv('USER')
 CLOUD=os.getenv("CLOUD")
 OPENSTACK_EXTRA_ARGS=os.getenv('OPENSTACK_EXTRA_ARGS', 
                             f'--os-auth-type v3token --os-token "{os.getenv("OS_AUTH_TOKEN")}"')
@@ -31,7 +35,6 @@ def check_cmp_upgrade_readiness(cmp):
 
 def get_vms_in_host(cmp):
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} server list --all -n -f json --limit 100000000000 --host {cmp}"
-    #TODO: Move this to a function to make it less verbose 
     result = subprocess.run(
         cmd,
         shell=True,
@@ -64,6 +67,13 @@ def get_mosk_cluster_ns():
         if not 'default' in line and line != '':
             return line.split(" ")[0]
 
+"""
+
+Inventory format: [machine, node, AZ, Rack]
+Eg:
+['cmp-z01r09b01-01', 'kaas-node-c3a5c58c-ee82-42fd-b1dd-ed90d68b96b2', 'eu-lon-dev1-a', 'z01r09b01']
+
+"""
 def get_cmp_inventory():
     logging.info("Gathering machine/node in the cluster")
     cmd = ['kubectl', "--context", f"mcc-{CLOUD}", 'get', 'machine', '-A',  '-o', 'custom-columns=NAME:.metadata.name,INSTANCE:.status.instanceName']
@@ -125,6 +135,7 @@ def create_nodeworkloadlock(cmp):
 
 
 def check_nodeworkloadlock(cmp):
+    logging.info(f"Checking NodeWorkloadLock for {cmp}")
     cmd = ['kubectl',  "--context", f"mosk-{CLOUD}", 'get', 'nodeworkloadlock', f"{TOOL_NAME}-{cmp}"]  
     result = subprocess.run(
         cmd,
@@ -151,17 +162,92 @@ def remove_nodeworkloadlock(cmp):
     else:
         return True
 
-def node_safe_release_lock(cmp):
-    pass
-
 def lock_all_nodes(inventory):
-    pass
+    for node in inventory:
+        create_nodeworkloadlock(node[1])
 
 def check_locks_all_nodes(inventory):
+    status=True
+    for node in inventory:
+        if not check_nodeworkloadlock(node[1]):
+            logging.error(f"NodeWorkloadLock absent for the node {node[1]}")
+            logging.critical("DO NOT START THE UPGRADE")
+            status=False
+            break
+    return status
+
+def rack_release_lock(inventory,rack,unsafe=False):
+    logging.info(f"Releasing Locks on rack: {rack}")
+    inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
+    logging.debug(inventory_filtered_by_rack)
+    for node in inventory_filtered_by_rack:
+        if unsafe==True:
+            remove_nodeworkloadlock(node[1])
+        else:
+            if check_cmp_upgrade_readiness(node[1]):
+                remove_nodeworkloadlock(node[1])
+
+
+
+def rack_silence_alert(inventory,rack):
+    logging.info(f"Silencing alert for the rack: {rack}")
+    inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
+    logging.debug(inventory_filtered_by_rack)
+    status=True
+    for node in inventory_filtered_by_rack:
+        cmds = [
+            f"kubectl --context mosk-{CLOUD} -n stacklight exec sts/prometheus-alertmanager -c prometheus-alertmanager -- amtool --alertmanager.url http://127.0.0.1:9093 silence add -a '{USER}'  -d 2h -c '{TOOL_NAME}: MOSK Rack Upgrade'  'node={node[1]}'", 
+            f"kubectl --context mosk-{CLOUD} -n stacklight exec sts/prometheus-alertmanager -c prometheus-alertmanager -- amtool --alertmanager.url http://127.0.0.1:9093 silence add -a '{USER}'  -d 2h -c '{TOOL_NAME}: MOSK Rack Upgrade'  'node_name={node[1]}'", 
+            f"kubectl --context mosk-{CLOUD} -n stacklight exec sts/prometheus-alertmanager -c prometheus-alertmanager -- amtool --alertmanager.url http://127.0.0.1:9093 silence add -a '{USER}'  -d 2h -c '{TOOL_NAME}: MOSK Rack Upgrade'  'openstack_hypervisor_hostname=~{node[1]}'" 
+        ]
+        for cmd in cmds:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                shell=True
+            )
+            if result.returncode != 0:
+                logging.error(f"kubectl command failed: {result.stderr}")
+                status=status and False
+            else:
+                status=status and True
+    return status
+
+def rack_list_vms(inventory,rack):
+    #inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
+    #for node in inventory_filtered_by_rack:
     pass
 
-def rack_silence_alert(rack):
-    pass
+
+def rack_enable_disable(inventory,rack,op):
+    inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
+    logging.debug(inventory_filtered_by_rack)
+    for node in inventory_filtered_by_rack:
+        if op == 'disable':
+            logging.info(f"Disabling {rack}/{node[1]} for placement")
+            cmd = f"openstack {OPENSTACK_EXTRA_ARGS} compute service set --disable --disable-reason='{TOOL_NAME}: {USER}: Preparing the node for maintenance' {node[1]} nova-compute"
+        elif op == 'enable':
+            logging.info(f"Enabling {rack}/{node[1]} for placement")
+            cmd = f"openstack {OPENSTACK_EXTRA_ARGS} compute service set --enable {node[1]} nova-compute"
+        else:
+            logging.error(f'Unknown operation')
+            return False
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        if result.returncode != 0:
+            logging.error(f"openstack command failed: {result.stderr}")
+            return False
+    return True
+
+
+def rack_live_migrate(inventory,rack):
+    pass 
 
 def get_vm_info(vm_id):
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} server show -f json {vm_id}"

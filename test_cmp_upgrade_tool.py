@@ -41,7 +41,6 @@ def test_get_reverse_dns():
     for ip in fqdn_to_ip.keys():
         assert cmp_upgrade_tool.get_reverse_dns(ip) == fqdn_to_ip[ip]
 
-"""
 
 def test_create_nodeworkloadlock():
     cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
@@ -53,3 +52,32 @@ def test_remove_nodeworkloadlock():
     cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
     cmp_upgrade_tool.remove_nodeworkloadlock(cmp)
     assert cmp_upgrade_tool.check_nodeworkloadlock(cmp) == False
+
+def test_lock_all_nodes():
+    inventory = cmp_upgrade_tool.get_cmp_inventory()
+    cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
+    assert(cmp_upgrade_tool.check_locks_all_nodes(inventory)==False)
+    cmp_upgrade_tool.lock_all_nodes(inventory)
+    assert(cmp_upgrade_tool.check_locks_all_nodes(inventory))
+    cmp_upgrade_tool.remove_nodeworkloadlock(cmp)
+    assert(cmp_upgrade_tool.check_locks_all_nodes(inventory)==False)
+
+
+def test_rack_enable_disable():
+    inventory = cmp_upgrade_tool.get_cmp_inventory()
+    rack="z01r09b01"
+    assert cmp_upgrade_tool.rack_enable_disable(inventory,rack,'disable')
+    assert cmp_upgrade_tool.rack_enable_disable(inventory,rack,'enable')
+
+
+def test_rack_release_lock():
+    inventory = cmp_upgrade_tool.get_cmp_inventory()
+    rack="z01r09b01"
+    cmp_upgrade_tool.rack_release_lock(inventory,rack)
+
+"""
+
+def test_rack_silence_alert():
+    inventory = cmp_upgrade_tool.get_cmp_inventory()
+    rack="z01r09b01"
+    assert cmp_upgrade_tool.rack_silence_alert(inventory,rack)
