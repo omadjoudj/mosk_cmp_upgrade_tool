@@ -214,9 +214,12 @@ def rack_silence_alert(inventory,rack):
     return status
 
 def rack_list_vms(inventory,rack):
-    #inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
-    #for node in inventory_filtered_by_rack:
-    pass
+    vms=[]
+    inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
+    for node in inventory_filtered_by_rack:
+        vms.append(get_vms_in_host(node[1]))
+    return vms
+
 
 
 def rack_enable_disable(inventory,rack,op):
@@ -300,16 +303,12 @@ def get_reverse_dns(ip):
 
 
 def main():
-    # Create the main ArgumentParser object
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
     
-    # Add global options (if any)
     parser.add_argument('--version', action='version', version='%(prog)s 1.0')
     
-    # Create subparsers for different commands
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
-    # Define parsers for each command
     lock_parser = subparsers.add_parser('lock-all-nodes', help='Lock all nodes')
     check_parser = subparsers.add_parser('check-locks', help='Check locks')
     list_parser = subparsers.add_parser('list-vms', help='List VMs')
@@ -335,28 +334,26 @@ def main():
     #node_release_parser = subparsers.add_parser('node-release-lock', help='Release lock on a node')
     #node_release_parser.add_argument('node', type=str, help='Node name')
     
-    # Parse arguments
     args = parser.parse_args()
     
-    # Handle command execution
     if args.command == 'lock-all-nodes':
-        print("Locking all nodes...")
+        print("==> Locking all nodes...")
     elif args.command == 'check-locks':
-        print("Checking locks...")
+        print("==> Checking locks...")
     elif args.command == 'list-vms':
-        print("Listing VMs...")
+        print("==> Listing VMs...")
     elif args.command == 'rack-list-vms':
-        print(f"Listing VMs in rack: {args.rack}")
+        print(f"==> Listing VMs in rack: {args.rack}")
     elif args.command == 'rack-release-lock':
-        print(f"Releasing lock on rack: {args.rack}")
+        print(f"==> Releasing lock on rack: {args.rack}")
     elif args.command == 'rack-disable':
-        print(f"Disabling rack: {args.rack}")
+        print(f"==> Disabling rack: {args.rack}")
     elif args.command == 'rack-enable':
-        print(f"Enabling rack: {args.rack}")
+        print(f"==> Enabling rack: {args.rack}")
     elif args.command == 'rack-live-migrate':
-        print(f"Migrating VMs in rack: {args.rack}")
+        print(f"==> Migrating VMs in rack: {args.rack}")
     elif args.command == 'rack-silence':
-        print(f"Silencing notifications on rack: {args.rack}")
+        print(f"==> Silencing notifications on rack: {args.rack}")
     #elif args.command == 'node-release-lock':
     #    print(f"Releasing lock on node: {args.node}")
     else:

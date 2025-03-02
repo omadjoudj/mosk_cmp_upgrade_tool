@@ -1,6 +1,7 @@
 import pytest
 import cmp_upgrade_tool
 import re
+from pprint import pprint
 
 """
 def test_func_get_mosk_cluster_ns():
@@ -19,8 +20,8 @@ def test_func_get_cmp_inventory():
 def test_get_vms_in_host():
     cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
     vms=cmp_upgrade_tool.get_vms_in_host(cmp)
+    pprint(vms)
     assert any(vm['Name'] == ("healthcheck_SNAT_%s" % cmp) for vm in vms)
-
 def test_func_check_cmp_upgrade_readiness():
     cmp="kaas-node-09624872-54dd-4ca8-99dd-18368c964c17"
     assert cmp_upgrade_tool.check_cmp_upgrade_readiness(cmp) == False
@@ -69,15 +70,26 @@ def test_rack_enable_disable():
     assert cmp_upgrade_tool.rack_enable_disable(inventory,rack,'disable')
     assert cmp_upgrade_tool.rack_enable_disable(inventory,rack,'enable')
 
+def test_rack_silence_alert():
+    inventory = cmp_upgrade_tool.get_cmp_inventory()
+    rack="z01r09b01"
+    assert cmp_upgrade_tool.rack_silence_alert(inventory,rack)
 
 def test_rack_release_lock():
     inventory = cmp_upgrade_tool.get_cmp_inventory()
     rack="z01r09b01"
     cmp_upgrade_tool.rack_release_lock(inventory,rack)
 
-"""
+def test_rack_release_lock_on_all_racks():
+    inventory = cmp_upgrade_tool.get_cmp_inventory()
+    for rack in list(dict.fromkeys([row[3] for row in inventory])):
+        cmp_upgrade_tool.rack_release_lock(inventory,rack,unsafe=True)
 
-def test_rack_silence_alert():
+    assert(cmp_upgrade_tool.check_locks_all_nodes(inventory)==False)
+
+"""
+def test_rack_list_vms():
     inventory = cmp_upgrade_tool.get_cmp_inventory()
     rack="z01r09b01"
-    assert cmp_upgrade_tool.rack_silence_alert(inventory,rack)
+    print(f"==> VMs in rack {rack}")
+    pprint(cmp_upgrade_tool.rack_list_vms(inventory,rack))
