@@ -35,8 +35,7 @@ def get_cr(cr_id, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_use
     return rest_client('GET', f'{nemo_api_endpoint}/change_man/api/v1/cr/{cr_id}/', nemo_api_service_user, nemo_api_service_user_password)
 
 
-def create_cr(nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, hosts, status='draft'):
-    cr_status='draft'
+def create_cr(nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, summary, planed_start_date, planned_end_date, hosts, status='draft'):
     cr_template_json=""" 
     {
         "summary": "[opscare][ams-pc5][z04r06b15] kaas-node-1807849f-6e48-49d7-a878-51bdb8139c06 maintenance 2",
@@ -65,6 +64,7 @@ def create_cr(nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_pa
         ]
     }
     """
+    return rest_client('POST', f'{nemo_api_endpoint}/change_man/api/v1/cr/', nemo_api_service_user, nemo_api_service_user_password,cr_template_json)
 
 if __name__ == "__main__":
 
@@ -74,7 +74,6 @@ if __name__ == "__main__":
     nemo_api_endpoint=config["DEFAULT"]["nemo_api_endpoint"]
     nemo_api_service_user=config["DEFAULT"]["nemo_api_service_user"]
     nemo_api_service_user_password=config["DEFAULT"]["nemo_api_service_user_password"]
-    #r = rest_client('GET', f'{nemo_api_endpoint}/change_man/api/v1/cr/1961/', nemo_api_service_user, nemo_api_service_user_password)
-    #r = rest_client('POST', f'{nemo_api_endpoint}/change_man/api/v1/cr/', nemo_api_service_user, nemo_api_service_user_password,cr_template_json)
-    r = get_cr(1961, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password)
+    #r = get_cr(1961, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password)
+    #r = create_cr(nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, "Test")
     print(json.loads(r.read()))

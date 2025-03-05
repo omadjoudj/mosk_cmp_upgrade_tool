@@ -17,6 +17,15 @@ import re
 import os
 import sys
 import socket
+import nemo_client
+
+from pprint import pprint
+
+
+logging.basicConfig()
+logger = logging.getLogger('cmp-upgrade-tool')
+LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
+logger.setLevel(LOGLEVEL)
 
 TOOL_NAME="custom-opscare-openstack-cmp-upgrade-tool"
 USER=os.getenv('USER')
@@ -30,7 +39,7 @@ def check_cmp_upgrade_readiness(cmp):
     if len(vms_not_in_shutoff_state) == 0:
         return True
     else:
-        logging.error(f"Node {cmp} has VM(s): {vms_not_in_shutoff_state}")
+        logger.error(f"Node {cmp} has VM(s): {vms_not_in_shutoff_state}")
         return False
 
 def get_vms_in_host(cmp):
@@ -50,10 +59,10 @@ def check_env():
     cmd = ["kubectl", "config", "get-contexts"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if "mcc" not in result.stdout and "mosk" not in result.stdout:
-        logging.error(f"Kubernetes context is not set correctly")
+        logger.error(f"Kubernetes context is not set correctly")
         return False
     if os.getenv("CLOUD").replace("_","-") not in os.getenv("OS_AUTH_URL"):
-        logging.error(f"CLOUD env var does not match the exported Openstack env")
+        logger.error(f"CLOUD env var does not match the exported Openstack env")
         return False
     return True
         
@@ -75,16 +84,16 @@ Eg:
 
 """
 def get_cmp_inventory():
-    logging.info("Gathering machine/node in the cluster")
+    logger.info("Gathering machine/node in the cluster")
     cmd = ['kubectl', "--context", f"mcc-{CLOUD}", 'get', 'machine', '-A',  '-o', 'custom-columns=NAME:.metadata.name,INSTANCE:.status.instanceName']
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        logging.error(f"kubectl command failed: {result.stderr}")
+        logger.error(f"kubectl command failed: {result.stderr}")
         return False
     inventory = [' '.join(node.split()).split() for node in result.stdout.split("\n") if 'cmp' in node]
 
     # Get AZs
-    logging.info("Getting AZs information")
+    logger.info("Getting AZs information")
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} availability zone list --long -f json"
         
     result = subprocess.run(
@@ -97,14 +106,14 @@ def get_cmp_inventory():
         )
     
     if result.returncode != 0:
-        logging.error(f"openstack command failed: {result.stderr}")
+        logger.error(f"openstack command failed: {result.stderr}")
         return False
     azs = json.loads(result.stdout)
     for line in inventory:
         line.append(get_az_for_host(line[1], azs))
         line.append(re.search( r'z\d+r\d+b\d+', line[0]).group())
 
-    logging.debug(inventory)
+    logger.debug(inventory)
     return inventory
 
 def create_nodeworkloadlock(cmp):
@@ -118,7 +127,7 @@ def create_nodeworkloadlock(cmp):
         controllerName: {TOOL_NAME}
     """
     
-    logging.info(f"Creating NodeWorkloadLock for {cmp}")
+    logger.info(f"Creating NodeWorkloadLock for {cmp}")
 
     cmd = ['kubectl',  "--context", f"mosk-{CLOUD}",'apply', '-f', '-']  
     result = subprocess.run(
@@ -129,13 +138,13 @@ def create_nodeworkloadlock(cmp):
     )
     
     if result.returncode != 0:
-        logging.error(f"kubectl command failed: {result.stderr}")
+        logger.error(f"kubectl command failed: {result.stderr}")
         return False
     return result.stdout
 
 
 def check_nodeworkloadlock(cmp):
-    logging.info(f"Checking NodeWorkloadLock for {cmp}")
+    logger.info(f"Checking NodeWorkloadLock for {cmp}")
     cmd = ['kubectl',  "--context", f"mosk-{CLOUD}", 'get', 'nodeworkloadlock', f"{TOOL_NAME}-{cmp}"]  
     result = subprocess.run(
         cmd,
@@ -149,7 +158,7 @@ def check_nodeworkloadlock(cmp):
         return True
 
 def remove_nodeworkloadlock(cmp):
-    logging.info(f"Removing NodeWorkloadLock for {cmp}")
+    logger.info(f"Removing NodeWorkloadLock for {cmp}")
     cmd = f"kubectl --context mosk-{CLOUD} delete nodeworkloadlock --grace-period=0 {TOOL_NAME}-{cmp}"
     result = subprocess.run(
         cmd,
@@ -157,7 +166,7 @@ def remove_nodeworkloadlock(cmp):
         shell=True
     )
     if result.returncode != 0:
-        logging.error(f"kubectl command failed: {result.stderr}")
+        logger.error(f"kubectl command failed: {result.stderr}")
         return False
     else:
         return True
@@ -170,16 +179,16 @@ def check_locks_all_nodes(inventory):
     status=True
     for node in inventory:
         if not check_nodeworkloadlock(node[1]):
-            logging.error(f"NodeWorkloadLock absent for the node {node[1]}")
-            logging.critical("DO NOT START THE UPGRADE")
+            logger.error(f"NodeWorkloadLock absent for the node {node[1]}")
+            logger.critical("DO NOT START THE UPGRADE")
             status=False
             break
     return status
 
 def rack_release_lock(inventory,rack,unsafe=False):
-    logging.info(f"Releasing Locks on rack: {rack}")
+    logger.info(f"Releasing Locks on rack: {rack}")
     inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
-    logging.debug(inventory_filtered_by_rack)
+    logger.debug(inventory_filtered_by_rack)
     for node in inventory_filtered_by_rack:
         if unsafe==True:
             remove_nodeworkloadlock(node[1])
@@ -190,9 +199,9 @@ def rack_release_lock(inventory,rack,unsafe=False):
 
 
 def rack_silence_alert(inventory,rack):
-    logging.info(f"Silencing alert for the rack: {rack}")
+    logger.info(f"Silencing alert for the rack: {rack}")
     inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
-    logging.debug(inventory_filtered_by_rack)
+    logger.debug(inventory_filtered_by_rack)
     status=True
     for node in inventory_filtered_by_rack:
         cmds = [
@@ -207,7 +216,7 @@ def rack_silence_alert(inventory,rack):
                 shell=True
             )
             if result.returncode != 0:
-                logging.error(f"kubectl command failed: {result.stderr}")
+                logger.error(f"kubectl command failed: {result.stderr}")
                 status=status and False
             else:
                 status=status and True
@@ -224,16 +233,16 @@ def rack_list_vms(inventory,rack):
 
 def rack_enable_disable(inventory,rack,op):
     inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
-    logging.debug(inventory_filtered_by_rack)
+    logger.debug(inventory_filtered_by_rack)
     for node in inventory_filtered_by_rack:
         if op == 'disable':
-            logging.info(f"Disabling {rack}/{node[1]} for placement")
+            logger.info(f"Disabling {rack}/{node[1]} for placement")
             cmd = f"openstack {OPENSTACK_EXTRA_ARGS} compute service set --disable --disable-reason='{TOOL_NAME}: {USER}: Preparing the node for maintenance' {node[1]} nova-compute"
         elif op == 'enable':
-            logging.info(f"Enabling {rack}/{node[1]} for placement")
+            logger.info(f"Enabling {rack}/{node[1]} for placement")
             cmd = f"openstack {OPENSTACK_EXTRA_ARGS} compute service set --enable {node[1]} nova-compute"
         else:
-            logging.error(f'Unknown operation')
+            logger.error(f'Unknown operation')
             return False
         result = subprocess.run(
             cmd,
@@ -244,7 +253,7 @@ def rack_enable_disable(inventory,rack,op):
             text=True
         )
         if result.returncode != 0:
-            logging.error(f"openstack command failed: {result.stderr}")
+            logger.error(f"openstack command failed: {result.stderr}")
             return False
     return True
 
@@ -265,11 +274,11 @@ def get_vm_info(vm_id):
         )
     
     if result.returncode != 0:
-        logging.error(f"openstack command failed: {result.stderr}")
+        logger.error(f"openstack command failed: {result.stderr}")
         return False
     
     vm_info = json.loads(result.stdout)
-    logging.debug(vm_info)
+    logger.debug(vm_info)
     return vm_info
 
 def get_project_info(project_id_or_name):
@@ -285,11 +294,11 @@ def get_project_info(project_id_or_name):
         )
     
     if result.returncode != 0:
-        logging.error(f"openstack command failed: {result.stderr}")
+        logger.error(f"openstack command failed: {result.stderr}")
         return False
     
     project_info = json.loads(result.stdout)
-    logging.debug(project_info)
+    logger.debug(project_info)
     return project_info
 
 
@@ -298,9 +307,12 @@ def get_reverse_dns(ip):
         fqdn = socket.gethostbyaddr(ip)[0]
     except socket.herror:
         fqdn = None
-    logging.debug(fqdn)
+    logger.debug(fqdn)
     return fqdn
 
+def nemo_plan_crs():
+    inventory = get_cmp_inventory()
+    pprint(inventory)
 
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
@@ -331,8 +343,8 @@ def main():
     silence_parser = subparsers.add_parser('rack-silence', help='Silence notifications on a rack')
     silence_parser.add_argument('rack', type=str, help='Rack name')
     
-    #node_release_parser = subparsers.add_parser('node-release-lock', help='Release lock on a node')
-    #node_release_parser.add_argument('node', type=str, help='Node name')
+    nemo_plan_crs_parser = subparsers.add_parser('nemo-plan-crs', help='Create the CRs in Nemo')
+
     
     args = parser.parse_args()
     
@@ -354,8 +366,9 @@ def main():
         print(f"==> Migrating VMs in rack: {args.rack}")
     elif args.command == 'rack-silence':
         print(f"==> Silencing notifications on rack: {args.rack}")
-    #elif args.command == 'node-release-lock':
-    #    print(f"Releasing lock on node: {args.node}")
+    elif args.command == 'nemo-plan-crs':
+        print(f"==> Creating CRs on Nemo")
+        nemo_plan_crs()
     else:
         parser.print_help()
 

@@ -3,7 +3,6 @@ import cmp_upgrade_tool
 import re
 from pprint import pprint
 
-"""
 def test_func_get_mosk_cluster_ns():
     r = cmp_upgrade_tool.get_mosk_cluster_ns()
     assert r == "lon1-dev-mos001"
@@ -87,7 +86,6 @@ def test_rack_release_lock_on_all_racks():
 
     assert(cmp_upgrade_tool.check_locks_all_nodes(inventory)==False)
 
-"""
 def test_rack_list_vms():
     inventory = cmp_upgrade_tool.get_cmp_inventory()
     rack="z01r09b01"
