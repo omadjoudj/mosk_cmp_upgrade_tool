@@ -344,6 +344,7 @@ def main():
     silence_parser.add_argument('rack', type=str, help='Rack name')
     
     nemo_plan_crs_parser = subparsers.add_parser('nemo-plan-crs', help='Create the CRs in Nemo')
+    nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help='Process the CRs in Nemo scheduled now')
 
     
     args = parser.parse_args()
