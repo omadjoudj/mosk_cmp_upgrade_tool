@@ -19,8 +19,6 @@ import sys
 import socket
 import nemo_client
 
-from pprint import pprint
-
 
 logging.basicConfig()
 logger = logging.getLogger('cmp-upgrade-tool')
@@ -310,9 +308,25 @@ def get_reverse_dns(ip):
     logger.debug(fqdn)
     return fqdn
 
+def get_az_rack_asso(inventory):
+    unique_combinations = []
+    seen = set()
+    for item in inventory:
+        pair = (item[2], item[3])
+        if pair not in seen:
+            unique_combinations.append([item[2], item[3]])
+            seen.add(pair)
+
+    return sorted(unique_combinations, key=lambda x: (x[0] is None, x[0]))
+
+def get_nodes_in_rack(inventory,rack):
+    return [row for row in inventory if row[2] == rack]
+
 def nemo_plan_crs():
     inventory = get_cmp_inventory()
-    pprint(inventory)
+    az_rack_asso = get_az_rack_asso(inventory)
+    for az_rack in az_rack_asso:
+        print(get_nodes_in_rack(inventory, az_rack))
 
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
