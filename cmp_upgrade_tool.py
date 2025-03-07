@@ -10,6 +10,7 @@
 #TODO: Move run commands to a function to make it less verbose 
 
 import argparse
+from collections import defaultdict
 import json
 import logging
 import subprocess
@@ -309,15 +310,14 @@ def get_reverse_dns(ip):
     return fqdn
 
 def get_az_rack_mapping(inventory):
-    unique_combinations = []
-    seen = set()
-    for item in inventory:
-        pair = (item[2], item[3])
-        if pair not in seen:
-            unique_combinations.append([item[2], item[3]])
-            seen.add(pair)
-
-    return sorted(unique_combinations, key=lambda x: (x[0] is None, x[0]))
+    result = defaultdict(set)
+    
+    for sublist in inventory:
+        key = sublist[2]
+        value = sublist[3]
+        result[key].add(value)
+    
+    return dict(result)
 
 def get_nodes_in_rack(inventory,rack):
     return [row for row in inventory if row[3] == rack]
@@ -330,9 +330,8 @@ def nemo_plan_crs():
     az_rack_mapping = get_az_rack_mapping(inventory)
     print(az_rack_mapping)
     for az in get_azs(inventory):
-        print('====')
-        #print(get_nodes_in_rack(inventory, az_rack[1]))
-        print(az)
+        for rack in az_rack_mapping[az]:
+            print(f"{az} => {rack}")
 
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
