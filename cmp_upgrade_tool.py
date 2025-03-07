@@ -308,7 +308,7 @@ def get_reverse_dns(ip):
     logger.debug(fqdn)
     return fqdn
 
-def get_az_rack_asso(inventory):
+def get_az_rack_mapping(inventory):
     unique_combinations = []
     seen = set()
     for item in inventory:
@@ -320,13 +320,19 @@ def get_az_rack_asso(inventory):
     return sorted(unique_combinations, key=lambda x: (x[0] is None, x[0]))
 
 def get_nodes_in_rack(inventory,rack):
-    return [row for row in inventory if row[2] == rack]
+    return [row for row in inventory if row[3] == rack]
+
+def get_azs(inventory):
+    return sorted(set(item[2] for item in inventory if item[2] is not None))
 
 def nemo_plan_crs():
     inventory = get_cmp_inventory()
-    az_rack_asso = get_az_rack_asso(inventory)
-    for az_rack in az_rack_asso:
-        print(get_nodes_in_rack(inventory, az_rack))
+    az_rack_mapping = get_az_rack_mapping(inventory)
+    print(az_rack_mapping)
+    for az in get_azs(inventory):
+        print('====')
+        #print(get_nodes_in_rack(inventory, az_rack[1]))
+        print(az)
 
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
