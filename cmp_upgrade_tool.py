@@ -93,7 +93,7 @@ def get_cmp_inventory():
     inventory = [' '.join(node.split()).split() for node in result.stdout.split("\n") if 'cmp' in node]
 
     # Get AZs
-    logger.info("Getting AZs information")
+    logger.info("Gathering AZs information")
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} availability zone list --long -f json"
         
     result = subprocess.run(
@@ -390,10 +390,10 @@ def nemo_plan_crs(start_date):
                         vm_dict["hypervisor"]=node[1]
                         hosts.append(vm_dict)
             #print(json.dumps(hosts))
-            summary=f"opscare/{CLOUD}/{rack} maintenance"
+            summary=f"opscare/{CLOUD}/{az}/{rack} maintenance"
             
             if is_friday_or_weekend(rack_mw_start_date):
-                planned_start_date = find_nearest_weekday(rack_mw_start_date)
+                nearest_weekday = find_nearest_weekday(rack_mw_start_date)
             
             if scheduled_rack_per_day_count == 1:
                 rack_mw_start_time = "8:00"
@@ -406,8 +406,8 @@ def nemo_plan_crs(start_date):
                 rack_mw_end_time = "17:00"
             
             r = nemo_client.create_cr(summary, 
-                                      f"{rack_mw_start_date}T{rack_mw_start_time}", 
-                                      f"{rack_mw_start_date}T{rack_mw_end_time}", 
+                                      f"{nearest_weekday}T{rack_mw_start_time}", 
+                                      f"{nearest_weekday}T{rack_mw_end_time}", 
                                       json.dumps(hosts), 
                                       **nemo_config, 
                                       dryrun=True

@@ -43,7 +43,7 @@ def create_cr(summary, planned_start_date, planned_end_date, hosts, nemo_api_end
         "planned_start_date":"{planned_start_date}",
         "planned_end_date":"{planned_end_date}",
         "type": "normal_change",
-        "status": {status},
+        "status": "{status}",
         "subtype": "PrivateCloud_normal_change",
         "hosts": {hosts}
     }}
