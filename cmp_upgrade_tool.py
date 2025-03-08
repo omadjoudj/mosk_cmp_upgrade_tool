@@ -67,7 +67,7 @@ def check_env():
     return True
         
 def get_az_for_host(host_name, hosts_list):
-    return next((host['Zone Name'] for host in hosts_list if host['Host Name'] == host_name), None)
+    return next((host['Zone Name'] for host in hosts_list if host['Host Name'] == host_name), "AZ_not_assigned")
 
 def get_mosk_cluster_ns():
     cmd = ["kubectl", "--context", f"mcc-{CLOUD}", 'get', 'cluster', '-A', '--no-headers' ]
@@ -372,7 +372,7 @@ def nemo_plan_crs(start_date):
     for az in get_azs(inventory):
         for rack in az_rack_mapping[az]:
             for node in get_nodes_in_rack(inventory, rack):
-                for vm in get_vms_in_host(node[1]):
+                """for vm in get_vms_in_host(node[1]):
                     logger.info(f"Gathering info on AZ {az} / Rack {rack} / VM {vm['ID']}")
                     vm_info = get_vm_info(vm["ID"])
                     if "arping_nocheck" not in vm_info["tags"]:
@@ -380,7 +380,7 @@ def nemo_plan_crs(start_date):
                         vm_dict["vm_id"]=vm["ID"]
                         try:
                             vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
-                        except KeyError:
+                        except (KeyError,IndexError):
                             vm_dict["fqdn"] = vm_info["Name"]
                         project_info = get_project_info(vm_info["project_id"])
                         tags_dict = dict(tag.split('=') for tag in project_info["tags"])
@@ -388,12 +388,15 @@ def nemo_plan_crs(start_date):
                         vm_dict["sd_component"] = tags_dict["sd_component"]
                         vm_dict["rack"]= rack
                         vm_dict["hypervisor"]=node[1]
-                        hosts.append(vm_dict)
+                        hosts.append(vm_dict)"""
+            hosts='{Stuff}'
             #print(json.dumps(hosts))
-            summary=f"opscare/{CLOUD}/{az}/{rack} maintenance"
+            summary=f"opscare/{CLOUD}/{az}/{rack} compute nodes maintenance"
             
             if is_friday_or_weekend(rack_mw_start_date):
-                nearest_weekday = find_nearest_weekday(rack_mw_start_date)
+                nearest_weekday = find_nearest_weekday(rack_mw_start_date).strftime("%Y-%m-%d")
+            else:
+                nearest_weekday = rack_mw_start_date
             
             if scheduled_rack_per_day_count == 1:
                 rack_mw_start_time = "8:00"
@@ -414,11 +417,11 @@ def nemo_plan_crs(start_date):
                                       )
             print(r)
             scheduled_rack_per_day_count+=1
-            if scheduled_rack_per_day_count == 3:
-                # Reset since it's the end of shift
+            if scheduled_rack_per_day_count == 4:
+                # Reset since we do 3 rack per day
                 scheduled_rack_per_day_count = 1
                 # Next day
-                rack_mw_start_date = (datetime.strptime(rack_mw_start_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+                rack_mw_start_date = (datetime.strptime(nearest_weekday, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 
