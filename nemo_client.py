@@ -35,22 +35,20 @@ def get_cr(cr_id, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_use
     return rest_client('GET', f'{nemo_api_endpoint}/change_man/api/v1/cr/{cr_id}/', nemo_api_service_user, nemo_api_service_user_password)
 
 
-def create_cr(summary, planned_start_date, planned_end_date, hosts, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, debug=False):
-    if debug == True:
-        status="draft"
-    else:
-        status="draft"
+def create_cr(summary, planned_start_date, planned_end_date, hosts, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, dryrun=False):
+    status="planned"
     cr_template_json=f"""
     {{
         "summary": "{summary}",
         "planned_start_date":"{planned_start_date}",
         "planned_end_date":"{planned_end_date}",
         "type": "normal_change",
+        "status": {status},
         "subtype": "PrivateCloud_normal_change",
         "hosts": {hosts}
     }}
     """
-    if debug == True:
+    if dryrun == True:
         return f"POST: \n {cr_template_json}"
     else:
         return rest_client('POST', f'{nemo_api_endpoint}/change_man/api/v1/cr/', nemo_api_service_user, nemo_api_service_user_password,cr_template_json)
@@ -68,5 +66,5 @@ def parse_config():
 if __name__ == "__main__":
     nemo_config = parse_config()
     #r = get_cr(1961, **nemo_config)
-    r = create_cr("Test", "2025-05-01T16:00", "2025-05-01T16:00", "example.org", **nemo_config, debug=True)
+    r = create_cr("Test", "2025-05-01T16:00", "2025-05-01T16:00", "example.org", **nemo_config, dryrun=True)
     print(r)

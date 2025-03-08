@@ -11,6 +11,7 @@
 
 import argparse
 from collections import defaultdict
+from datetime import datetime, timedelta
 import json
 import logging
 import subprocess
@@ -325,13 +326,103 @@ def get_nodes_in_rack(inventory,rack):
 def get_azs(inventory):
     return sorted(set(item[2] for item in inventory if item[2] is not None))
 
-def nemo_plan_crs():
+def extract_fip(net_obj):
+    ips_starting_with_10 = []
+    for network_name, ip_addresses in net_obj.items():
+        ips_starting_with_10.extend([ip for ip in ip_addresses if ip.startswith('10.')])
+
+    return ips_starting_with_10
+
+def is_friday_or_weekend(date=None):
+    if date is None:
+        date = datetime.today()
+    elif isinstance(date, str):
+        date = datetime.strptime(date, '%Y-%m-%d')
+    
+    return date.weekday() >= 4
+
+def find_nearest_weekday(date=None):
+    """
+    Find the nearest date that is not Friday or weekend.
+    """
+    if date is None:
+        date = datetime.today()
+    elif isinstance(date, str):
+        date = datetime.strptime(date, '%Y-%m-%d')
+    
+    current_day = date.weekday()
+    
+    if current_day < 4:  
+        return date.date()
+    
+    days_to_next_weekday = (7 - current_day) % 7
+
+    return (date + timedelta(days=days_to_next_weekday)).date()
+
+def nemo_plan_crs(start_date):
+    nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
     az_rack_mapping = get_az_rack_mapping(inventory)
-    print(az_rack_mapping)
+    logger.debug(az_rack_mapping)
+    hosts=[]
+    vm_dict={}
+    rack_mw_start_date=start_date
+    rack_mw_start_time="8:00"
+    scheduled_rack_per_day_count=1
     for az in get_azs(inventory):
         for rack in az_rack_mapping[az]:
-            print(f"{az} => {rack}")
+            for node in get_nodes_in_rack(inventory, rack):
+                for vm in get_vms_in_host(node[1]):
+                    logger.info(f"Gathering info on AZ {az} / Rack {rack} / VM {vm['ID']}")
+                    vm_info = get_vm_info(vm["ID"])
+                    if "arping_nocheck" not in vm_info["tags"]:
+                        #print(f"{vm_info['addresses']}")
+                        vm_dict["vm_id"]=vm["ID"]
+                        try:
+                            vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
+                        except KeyError:
+                            vm_dict["fqdn"] = vm_info["Name"]
+                        project_info = get_project_info(vm_info["project_id"])
+                        tags_dict = dict(tag.split('=') for tag in project_info["tags"])
+                        vm_dict["sd_project"] = tags_dict["sd_project"]
+                        vm_dict["sd_component"] = tags_dict["sd_component"]
+                        vm_dict["rack"]= rack
+                        vm_dict["hypervisor"]=node[1]
+                        hosts.append(vm_dict)
+            #print(json.dumps(hosts))
+            summary=f"opscare/{CLOUD}/{rack} maintenance"
+            
+            if is_friday_or_weekend(rack_mw_start_date):
+                planned_start_date = find_nearest_weekday(rack_mw_start_date)
+            
+            if scheduled_rack_per_day_count == 1:
+                rack_mw_start_time = "8:00"
+                rack_mw_end_time = "11:00"
+            elif scheduled_rack_per_day_count == 2:
+                rack_mw_start_time="11:00"
+                rack_mw_end_time = "14:00"
+            elif scheduled_rack_per_day_count == 3:
+                rack_mw_start_time="14:00"
+                rack_mw_end_time = "17:00"
+            
+            r = nemo_client.create_cr(summary, 
+                                      f"{rack_mw_start_date}T{rack_mw_start_time}", 
+                                      f"{rack_mw_start_date}T{rack_mw_end_time}", 
+                                      json.dumps(hosts), 
+                                      **nemo_config, 
+                                      dryrun=True
+                                      )
+            print(r)
+            scheduled_rack_per_day_count+=1
+            if scheduled_rack_per_day_count == 3:
+                # Reset since it's the end of shift
+                scheduled_rack_per_day_count = 1
+                # Next day
+                rack_mw_start_date = (datetime.strptime(rack_mw_start_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+
+
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
@@ -363,6 +454,7 @@ def main():
     silence_parser.add_argument('rack', type=str, help='Rack name')
     
     nemo_plan_crs_parser = subparsers.add_parser('nemo-plan-crs', help='Create the CRs in Nemo')
+    nemo_plan_crs_parser.add_argument("startdate", type=str, help="A date time when the CRs start")
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help='Process the CRs in Nemo scheduled now')
 
     
@@ -388,7 +480,7 @@ def main():
         print(f"==> Silencing notifications on rack: {args.rack}")
     elif args.command == 'nemo-plan-crs':
         print(f"==> Creating CRs on Nemo")
-        nemo_plan_crs()
+        nemo_plan_crs(args.startdate)
     else:
         parser.print_help()
 
