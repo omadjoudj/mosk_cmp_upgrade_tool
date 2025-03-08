@@ -317,8 +317,10 @@ def get_az_rack_mapping(inventory):
         key = sublist[2]
         value = sublist[3]
         result[key].add(value)
-    
-    return dict(result)
+    result_dict=dict(result)
+    other_elements = set().union(*[v for k, v in result_dict.items() if k != 'AZ_not_assigned'])
+    result_dict['AZ_not_assigned'].difference_update(other_elements) 
+    return result_dict
 
 def get_nodes_in_rack(inventory,rack):
     return [row for row in inventory if row[3] == rack]
