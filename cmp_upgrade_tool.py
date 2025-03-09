@@ -35,7 +35,7 @@ OPENSTACK_EXTRA_ARGS=os.getenv('OPENSTACK_EXTRA_ARGS',
 
 def check_cmp_upgrade_readiness(cmp):
     vms = get_vms_in_host(cmp)
-    vms_not_in_shutoff_state = [vm for vm in vms if vm['Status'] != 'SHUTOFF' and not vm['Name'].startswith('healthcheck_SNAT_')]
+    vms_not_in_shutoff_state = [vm for vm in vms if vm['Status'] != 'SHUTOFF' and not vm['name'].startswith('healthcheck_SNAT_')]
     if len(vms_not_in_shutoff_state) == 0:
         return True
     else:
@@ -374,7 +374,7 @@ def nemo_plan_crs(start_date):
     for az in get_azs(inventory):
         for rack in az_rack_mapping[az]:
             for node in get_nodes_in_rack(inventory, rack):
-                """for vm in get_vms_in_host(node[1]):
+                for vm in get_vms_in_host(node[1]):
                     logger.info(f"Gathering info on AZ {az} / Rack {rack} / VM {vm['ID']}")
                     vm_info = get_vm_info(vm["ID"])
                     if "arping_nocheck" not in vm_info["tags"]:
@@ -383,15 +383,17 @@ def nemo_plan_crs(start_date):
                         try:
                             vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
                         except (KeyError,IndexError):
-                            vm_dict["fqdn"] = vm_info["Name"]
+                            vm_dict["fqdn"] = vm_info["name"]
                         project_info = get_project_info(vm_info["project_id"])
-                        tags_dict = dict(tag.split('=') for tag in project_info["tags"])
-                        vm_dict["sd_project"] = tags_dict["sd_project"]
-                        vm_dict["sd_component"] = tags_dict["sd_component"]
+                        try:
+                            tags_dict = dict(tag.split('=') for tag in project_info["tags"])
+                            vm_dict["sd_project"] = tags_dict["sd_project"]
+                            vm_dict["sd_component"] = tags_dict["sd_component"]
+                        except KeyError:
+                            logger.warning(f"Tags do not exist for the vm: {vm['ID']}")
                         vm_dict["rack"]= rack
                         vm_dict["hypervisor"]=node[1]
-                        hosts.append(vm_dict)"""
-            hosts='{Stuff}'
+                        hosts.append(vm_dict)
             #print(json.dumps(hosts))
             summary=f"opscare/{CLOUD}/{az}/{rack} compute nodes maintenance"
             
