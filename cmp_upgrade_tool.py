@@ -341,8 +341,9 @@ def get_az_rack_mapping(inventory):
     result_dict['AZ_not_assigned'].difference_update(other_elements) 
     return result_dict
 
-def get_racks(inventory):
-    return sorted(set(row[3] for row in inventory))
+def get_racks_sorted_by_az(inventory):
+    az_rack = sorted(list(set((item[2], item[3]) for item in inventory)))
+    return [item[1] for item in az_rack]
 
 def get_nodes_in_rack(inventory,rack):
     return [row for row in inventory if row[3] == rack]
@@ -390,7 +391,7 @@ def nemo_plan_crs(start_date):
     rack_mw_start_date=start_date
     rack_mw_start_time="8:00"
     scheduled_rack_per_day_count=1
-    for rack in get_racks(inventory):
+    for rack in get_racks_sorted_by_az(inventory):
         for node in get_nodes_in_rack(inventory, rack):
             for vm in get_vms_in_host(node[1]):
                 logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
