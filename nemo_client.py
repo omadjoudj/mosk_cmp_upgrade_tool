@@ -4,6 +4,13 @@ from http.client import HTTPSConnection
 from base64 import b64encode
 import configparser
 import json
+import logging
+import os
+
+logging.basicConfig()
+logger = logging.getLogger('cmp-upgrade-tool')
+LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
+logger.setLevel(LOGLEVEL)
 
 def rest_client(verb, url, username, password, body=None, headers=None):
     hostname = url.replace("https://", "").split('/')[0]
@@ -49,8 +56,10 @@ def create_cr(summary, planned_start_date, planned_end_date, hosts, nemo_api_end
     }}
     """
     if dryrun == True:
-        return f"POST: \n {cr_template_json}"
+        logger.debug(f"POST: \n {cr_template_json}")
+        return
     else:
+        logger.debug(f"POST: \n {cr_template_json}")
         return rest_client('POST', f'{nemo_api_endpoint}/change_man/api/v1/cr/', nemo_api_service_user, nemo_api_service_user_password,cr_template_json)
 
 def parse_config():

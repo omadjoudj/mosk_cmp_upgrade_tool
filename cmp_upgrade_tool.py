@@ -281,6 +281,25 @@ def get_vm_info(vm_id):
     logger.debug(vm_info)
     return vm_info
 
+def prepare_nemo_host_entry(vm_id, rack, hypervisor):
+    vm_dict={}
+    vm_info = get_vm_info(vm_id)
+    vm_dict["vm_id"]=vm_id
+    try:
+        vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
+    except (KeyError,IndexError):
+        vm_dict["fqdn"] = vm_info["name"]
+    project_info = get_project_info(vm_info["project_id"])
+    try:
+        tags_dict = dict(tag.split('=') for tag in project_info["tags"])
+        vm_dict["sd_project"] = tags_dict["sd_project"]
+        vm_dict["sd_component"] = tags_dict["sd_component"]
+    except KeyError:
+        logger.warning(f"Tags do not exist for the vm: {vm_id}")
+    vm_dict["rack"]= rack
+    vm_dict["hypervisor"]=hypervisor
+    return vm_dict
+
 def get_project_info(project_id_or_name):
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} project show -f json {project_id_or_name}"
         
@@ -321,6 +340,9 @@ def get_az_rack_mapping(inventory):
     other_elements = set().union(*[v for k, v in result_dict.items() if k != 'AZ_not_assigned'])
     result_dict['AZ_not_assigned'].difference_update(other_elements) 
     return result_dict
+
+def get_racks(inventory):
+    return sorted(set(row[3] for row in inventory))
 
 def get_nodes_in_rack(inventory,rack):
     return [row for row in inventory if row[3] == rack]
@@ -364,68 +386,47 @@ def find_nearest_weekday(date=None):
 def nemo_plan_crs(start_date):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
-    az_rack_mapping = get_az_rack_mapping(inventory)
-    logger.debug(az_rack_mapping)
     hosts=[]
-    vm_dict={}
     rack_mw_start_date=start_date
     rack_mw_start_time="8:00"
     scheduled_rack_per_day_count=1
-    for az in get_azs(inventory):
-        for rack in az_rack_mapping[az]:
-            for node in get_nodes_in_rack(inventory, rack):
-                for vm in get_vms_in_host(node[1]):
-                    logger.info(f"Gathering info on AZ {az} / Rack {rack} / VM {vm['ID']}")
-                    vm_info = get_vm_info(vm["ID"])
-                    if "arping_nocheck" not in vm_info["tags"]:
-                        #print(f"{vm_info['addresses']}")
-                        vm_dict["vm_id"]=vm["ID"]
-                        try:
-                            vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
-                        except (KeyError,IndexError):
-                            vm_dict["fqdn"] = vm_info["name"]
-                        project_info = get_project_info(vm_info["project_id"])
-                        try:
-                            tags_dict = dict(tag.split('=') for tag in project_info["tags"])
-                            vm_dict["sd_project"] = tags_dict["sd_project"]
-                            vm_dict["sd_component"] = tags_dict["sd_component"]
-                        except KeyError:
-                            logger.warning(f"Tags do not exist for the vm: {vm['ID']}")
-                        vm_dict["rack"]= rack
-                        vm_dict["hypervisor"]=node[1]
-                        hosts.append(vm_dict)
-            #print(json.dumps(hosts))
-            summary=f"opscare/{CLOUD}/{az}/{rack} compute nodes maintenance"
-            
-            if is_friday_or_weekend(rack_mw_start_date):
-                nearest_weekday = find_nearest_weekday(rack_mw_start_date).strftime("%Y-%m-%d")
-            else:
-                nearest_weekday = rack_mw_start_date
-            
-            if scheduled_rack_per_day_count == 1:
-                rack_mw_start_time = "8:00"
-                rack_mw_end_time = "11:00"
-            elif scheduled_rack_per_day_count == 2:
-                rack_mw_start_time="11:00"
-                rack_mw_end_time = "14:00"
-            elif scheduled_rack_per_day_count == 3:
-                rack_mw_start_time="14:00"
-                rack_mw_end_time = "17:00"
-            
-            r = nemo_client.create_cr(summary, 
-                                      f"{nearest_weekday}T{rack_mw_start_time}", 
-                                      f"{nearest_weekday}T{rack_mw_end_time}", 
-                                      json.dumps(hosts), 
-                                      **nemo_config, 
-                                      dryrun=True
-                                      )
-            print(r)
-            scheduled_rack_per_day_count+=1
-            if scheduled_rack_per_day_count == 4:
-                # Reset since we do 3 rack per day
-                scheduled_rack_per_day_count = 1
-                # Next day
-                rack_mw_start_date = (datetime.strptime(nearest_weekday, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    for rack in get_racks(inventory):
+        for node in get_nodes_in_rack(inventory, rack):
+            for vm in get_vms_in_host(node[1]):
+                logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
+                hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1]))
+        print(json.dumps(hosts))
+        
+        summary=f"opscare/{CLOUD}/{rack} compute nodes maintenance"
+        
+        if is_friday_or_weekend(rack_mw_start_date):
+            nearest_weekday = find_nearest_weekday(rack_mw_start_date).strftime("%Y-%m-%d")
+        else:
+            nearest_weekday = rack_mw_start_date
+        
+        if scheduled_rack_per_day_count == 1:
+            rack_mw_start_time = "8:00"
+            rack_mw_end_time = "11:00"
+        elif scheduled_rack_per_day_count == 2:
+            rack_mw_start_time="11:00"
+            rack_mw_end_time = "14:00"
+        elif scheduled_rack_per_day_count == 3:
+            rack_mw_start_time="14:00"
+            rack_mw_end_time = "17:00"
+        
+        r = nemo_client.create_cr(summary, 
+                                    f"{nearest_weekday}T{rack_mw_start_time}", 
+                                    f"{nearest_weekday}T{rack_mw_end_time}", 
+                                    json.dumps(hosts), 
+                                    **nemo_config, 
+                                    dryrun=False
+                                    )
+        scheduled_rack_per_day_count+=1
+        if scheduled_rack_per_day_count == 4:
+            # Reset since we do 3 rack per day
+            scheduled_rack_per_day_count = 1
+            # Next day
+            rack_mw_start_date = (datetime.strptime(nearest_weekday, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 
