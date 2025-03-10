@@ -35,7 +35,7 @@ OPENSTACK_EXTRA_ARGS=os.getenv('OPENSTACK_EXTRA_ARGS',
 
 def check_cmp_upgrade_readiness(cmp):
     vms = get_vms_in_host(cmp)
-    vms_not_in_shutoff_state = [vm for vm in vms if vm['Status'] != 'SHUTOFF' and not vm['name'].startswith('healthcheck_SNAT_')]
+    vms_not_in_shutoff_state = [vm for vm in vms if vm['Status'] != 'SHUTOFF' and not vm['Name'].startswith('healthcheck_SNAT_')]
     if len(vms_not_in_shutoff_state) == 0:
         return True
     else:
@@ -394,9 +394,11 @@ def nemo_plan_crs(start_date):
     for rack in get_racks_sorted_by_az(inventory):
         for node in get_nodes_in_rack(inventory, rack):
             for vm in get_vms_in_host(node[1]):
-                logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
-                hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1]))
-        print(json.dumps(hosts))
+                if not vm['Name'].startswith('healthcheck_SNAT_'):
+                    logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
+                    hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1]))
+                else:
+                    logger.info(f"Skipping Rack {rack} / VM {vm['ID']}")
         
         summary=f"opscare/{CLOUD}/{rack} compute nodes maintenance"
         
@@ -422,6 +424,7 @@ def nemo_plan_crs(start_date):
                                     **nemo_config, 
                                     dryrun=False
                                     )
+        logger.debug(f"Nemo create API call return: Status: {r.status}, Reason: {r.reason}")
         scheduled_rack_per_day_count+=1
         if scheduled_rack_per_day_count == 4:
             # Reset since we do 3 rack per day

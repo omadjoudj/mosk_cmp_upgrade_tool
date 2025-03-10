@@ -60,7 +60,12 @@ def create_cr(summary, planned_start_date, planned_end_date, hosts, nemo_api_end
         return
     else:
         logger.debug(f"POST: \n {cr_template_json}")
-        return rest_client('POST', f'{nemo_api_endpoint}/change_man/api/v1/cr/', nemo_api_service_user, nemo_api_service_user_password,cr_template_json)
+        r = rest_client('POST', f'{nemo_api_endpoint}/change_man/api/v1/cr/', nemo_api_service_user, nemo_api_service_user_password,cr_template_json)
+        logger.debug(f"Nemo create API call return: Status: {r.status}, Reason: {r.reason}")
+        if r.status != 200:
+            logger.error(f"Nemo call returned {r.status}")
+        return r
+        
 
 def parse_config():
     config = configparser.ConfigParser()
