@@ -387,11 +387,11 @@ def find_nearest_weekday(date=None):
 def nemo_plan_crs(start_date):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
-    hosts=[]
     rack_mw_start_date=start_date
     rack_mw_start_time="8:00"
     scheduled_rack_per_day_count=1
     for rack in get_racks_sorted_by_az(inventory):
+        hosts=[]
         for node in get_nodes_in_rack(inventory, rack):
             for vm in get_vms_in_host(node[1]):
                 if not vm['Name'].startswith('healthcheck_SNAT_'):
@@ -424,13 +424,13 @@ def nemo_plan_crs(start_date):
                                     **nemo_config, 
                                     dryrun=False
                                     )
-        logger.debug(f"Nemo create API call return: Status: {r.status}, Reason: {r.reason}")
         scheduled_rack_per_day_count+=1
         if scheduled_rack_per_day_count == 4:
             # Reset since we do 3 rack per day
             scheduled_rack_per_day_count = 1
             # Next day
             rack_mw_start_date = (datetime.strptime(nearest_weekday, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    return r
 
 
 
