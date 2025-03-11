@@ -287,6 +287,9 @@ def prepare_nemo_host_entry(vm_id, rack, hypervisor):
     vm_dict["vm_id"]=vm_id
     try:
         vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
+        if not vm_dict["fqdn"]:
+            logger.debug(f"IP not resolvable on {vm_id}, falling back to VM name")
+            vm_dict["fqdn"] = vm_info["name"]
     except (KeyError,IndexError):
         vm_dict["fqdn"] = vm_info["name"]
     project_info = get_project_info(vm_info["project_id"])
@@ -430,7 +433,6 @@ def nemo_plan_crs(start_date):
             scheduled_rack_per_day_count = 1
             # Next day
             rack_mw_start_date = (datetime.strptime(nearest_weekday, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-    return r
 
 
 
