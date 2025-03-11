@@ -398,7 +398,7 @@ def nemo_plan_crs(start_date):
                     logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
                     hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1]))
                 else:
-                    logger.info(f"Skipping Rack {rack} / VM {vm['ID']}")
+                    logger.info(f"Skipping healthcheck_SNAT VM Rack {rack} / VM {vm['ID']}")
         
         summary=f"opscare/{CLOUD}/{rack} compute nodes maintenance"
         
