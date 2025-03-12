@@ -27,6 +27,7 @@ logger = logging.getLogger('cmp-upgrade-tool')
 LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
 logger.setLevel(LOGLEVEL)
 
+
 TOOL_NAME="custom-opscare-openstack-cmp-upgrade-tool"
 USER=os.getenv('USER')
 CLOUD=os.getenv("CLOUD")
@@ -285,6 +286,8 @@ def prepare_nemo_host_entry(vm_id, rack, hypervisor):
     vm_dict={}
     vm_info = get_vm_info(vm_id)
     vm_dict["vm_id"]=vm_id
+    vm_dict["sd_project"]="Empty"
+    vm_dict["sd_component"]="Empty" 
     try:
         vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
         if not vm_dict["fqdn"]:
@@ -435,6 +438,8 @@ def nemo_plan_crs(start_date):
             rack_mw_start_date = (datetime.strptime(nearest_weekday, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
 
+def nemo_process_crs():
+    pass
 
 
 
@@ -469,8 +474,8 @@ def main():
     
     nemo_plan_crs_parser = subparsers.add_parser('nemo-plan-crs', help='Create the CRs in Nemo')
     nemo_plan_crs_parser.add_argument("startdate", type=str, help="A date time when the CRs start")
-    nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help='Process the CRs in Nemo scheduled now')
 
+    nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
     
     args = parser.parse_args()
     
@@ -495,6 +500,9 @@ def main():
     elif args.command == 'nemo-plan-crs':
         print(f"==> Creating CRs on Nemo")
         nemo_plan_crs(args.startdate)
+    elif args.command == 'nemo-process-crs':
+        print(f"==> Processing Nemo's CRs scheduled now")
+        nemo_process_crs()
     else:
         parser.print_help()
 

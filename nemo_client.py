@@ -12,6 +12,7 @@ logger = logging.getLogger('cmp-upgrade-tool')
 LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
 logger.setLevel(LOGLEVEL)
 
+
 def rest_client(verb, url, username, password, body=None, headers=None):
     hostname = url.replace("https://", "").split('/')[0]
     path = '/' + '/'.join(url.split('/')[3:])
@@ -40,6 +41,9 @@ def rest_client(verb, url, username, password, body=None, headers=None):
 
 def get_cr(cr_id, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password):
     return rest_client('GET', f'{nemo_api_endpoint}/change_man/api/v1/cr/{cr_id}/', nemo_api_service_user, nemo_api_service_user_password)
+
+def fetch_crs_list(nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, limit=1000000, on_date="", status="planned"):
+    return rest_client('GET', f'{nemo_api_endpoint}/change_man/api/v1/cr/?limit={limit}&on_date={on_date}&status={status}', nemo_api_service_user, nemo_api_service_user_password)
 
 
 def create_cr(summary, planned_start_date, planned_end_date, hosts, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, dryrun=False):
