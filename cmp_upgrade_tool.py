@@ -22,9 +22,7 @@ import socket
 import nemo_client
 
 
-logger = logging.getLogger('cmp-upgrade-tool')
 LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
-logger.setLevel(LOGLEVEL)
 
 formatter = logging.Formatter(
     fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -32,6 +30,9 @@ formatter = logging.Formatter(
 )
 handler = logging.StreamHandler()
 handler.setFormatter(formatter)
+
+logger = logging.getLogger('cmp-upgrade-tool')
+logger.setLevel(LOGLEVEL)
 logger.addHandler(handler)
 
 
@@ -356,7 +357,7 @@ def get_az_rack_mapping(inventory):
 
 def get_racks_sorted_by_az(inventory):
     az_rack = sorted(list(set((item[2], item[3]) for item in inventory)))
-    return [item[1] for item in az_rack]
+    return set([item[1] for item in az_rack])
 
 def get_nodes_in_rack(inventory,rack):
     return [row for row in inventory if row[3] == rack]
@@ -446,21 +447,29 @@ def nemo_plan_crs(start_date):
         r.close()
 
 
-def nemo_process_crs():
+def nemo_list_crs(date):
     nemo_config = nemo_client.parse_config()
-    today_date = datetime.today().strftime('%Y-%m-%d')
-    r = nemo_client.fetch_crs_list(**nemo_config,on_date=today_date)
+    r = nemo_client.fetch_crs_list(**nemo_config,on_date=date)
     logger.debug(f"nemo_fetch_crs results = {r.status} {r.reason}")
     crs = json.loads(r.read())
     logger.debug(f"crs = {crs}")
     r.close()
-    todays_crs = [
+    total_crs_of_the_date = int(crs['count'])
+    logger.debug(f'total_crs_of_the_date = {total_crs_of_the_date}')
+    crs_of_the_date = [
         item for item in crs['results'] 
         if item['summary'].startswith(f'opscare/{CLOUD}')
     ]
-    logger.debug(f"todays_crs = {todays_crs}")
+    logger.debug(f"crs_for_the_date = {crs_of_the_date}")
+    return crs_of_the_date
+
+def nemo_process_crs():
+    today_date = datetime.today().strftime('%Y-%m-%d')
+    nemo_list_crs(today_date)
 
 
+def nemo_freeze_racks():
+    pass
 
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
@@ -496,6 +505,8 @@ def main():
 
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
     
+    nemo_freeze_racks_parser = subparsers.add_parser('nemo-freeze-racks', help="Process Nemo's CRs scheduled now")
+
     args = parser.parse_args()
     
     if args.command == 'lock-all-nodes':
@@ -522,6 +533,9 @@ def main():
     elif args.command == 'nemo-process-crs':
         print(f"==> Processing Nemo's CRs scheduled now")
         nemo_process_crs()
+    elif args.command == 'nemo-freeze-rack':
+        print(f"==> Freezing racks for upcoming changes in Nemo")
+        nemo_freeze_racks()
     else:
         parser.print_help()
 

@@ -1,4 +1,6 @@
 #!/usr/bin/python
+# A small module to interact with Nemo ChangeMan written from scratch to avoid external dependencies
+# Customization owner: omadjoudj
 
 from http.client import HTTPSConnection
 from base64 import b64encode
@@ -7,9 +9,7 @@ import json
 import logging
 import os
 
-logger = logging.getLogger('cmp-upgrade-tool')
 LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
-logger.setLevel(LOGLEVEL)
 
 formatter = logging.Formatter(
     fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -17,6 +17,9 @@ formatter = logging.Formatter(
 )
 handler = logging.StreamHandler()
 handler.setFormatter(formatter)
+
+logger = logging.getLogger('nemo_client')
+logger.setLevel(LOGLEVEL)
 logger.addHandler(handler)
 
 

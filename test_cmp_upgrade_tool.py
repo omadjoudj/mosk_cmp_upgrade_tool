@@ -3,6 +3,7 @@ import cmp_upgrade_tool
 import re
 from pprint import pprint
 
+"""
 def test_func_get_mosk_cluster_ns():
     r = cmp_upgrade_tool.get_mosk_cluster_ns()
     assert r == "lon1-dev-mos001"
@@ -91,3 +92,10 @@ def test_rack_list_vms():
     rack="z01r09b01"
     print(f"==> VMs in rack {rack}")
     pprint(cmp_upgrade_tool.rack_list_vms(inventory,rack))
+"""
+
+def test_get_racks_sorted_by_az():
+    inventory = cmp_upgrade_tool.get_cmp_inventory()
+    racks = cmp_upgrade_tool.get_racks_sorted_by_az(inventory)
+    print(f"racls= {racks}")
+    print(f"len(racls) = {len(racks)}")
