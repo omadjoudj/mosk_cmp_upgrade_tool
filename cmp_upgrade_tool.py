@@ -22,10 +22,17 @@ import socket
 import nemo_client
 
 
-logging.basicConfig()
 logger = logging.getLogger('cmp-upgrade-tool')
 LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
 logger.setLevel(LOGLEVEL)
+
+formatter = logging.Formatter(
+    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 TOOL_NAME="custom-opscare-openstack-cmp-upgrade-tool"
@@ -444,8 +451,14 @@ def nemo_process_crs():
     today_date = datetime.today().strftime('%Y-%m-%d')
     r = nemo_client.fetch_crs_list(**nemo_config,on_date=today_date)
     logger.debug(f"nemo_fetch_crs results = {r.status} {r.reason}")
-    print(r.read())
+    crs = json.loads(r.read())
+    logger.debug(f"crs = {crs}")
     r.close()
+    todays_crs = [
+        item for item in crs['results'] 
+        if item['summary'].startswith(f'opscare/{CLOUD}')
+    ]
+    logger.debug(f"todays_crs = {todays_crs}")
 
 
 
