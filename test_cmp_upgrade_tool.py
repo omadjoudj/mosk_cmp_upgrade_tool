@@ -99,3 +99,4 @@ def test_get_racks_sorted_by_az():
     racks = cmp_upgrade_tool.get_racks_sorted_by_az(inventory)
     print(f"racls= {racks}")
     print(f"len(racls) = {len(racks)}")
+    pprint(inventory)

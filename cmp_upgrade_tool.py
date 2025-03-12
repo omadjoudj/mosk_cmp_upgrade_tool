@@ -76,7 +76,11 @@ def check_env():
     return True
         
 def get_az_for_host(host_name, hosts_list):
-    return next((host['Zone Name'] for host in hosts_list if host['Host Name'] == host_name), "AZ_not_assigned")
+    host_entry = next(
+            (host for host in hosts_list if host['Host'] == host_name),
+            None
+        )
+    return host_entry['Zone'] if host_entry else "AZ_not_assigned"
 
 def get_mosk_cluster_ns():
     cmd = ["kubectl", "--context", f"mcc-{CLOUD}", 'get', 'cluster', '-A', '--no-headers' ]
@@ -103,7 +107,7 @@ def get_cmp_inventory():
 
     # Get AZs
     logger.info("Gathering AZs information")
-    cmd = f"openstack {OPENSTACK_EXTRA_ARGS} availability zone list --long -f json"
+    cmd = f"openstack {OPENSTACK_EXTRA_ARGS} compute service list --long -f json"
         
     result = subprocess.run(
             cmd,
@@ -357,7 +361,11 @@ def get_az_rack_mapping(inventory):
 
 def get_racks_sorted_by_az(inventory):
     az_rack = sorted(list(set((item[2], item[3]) for item in inventory)))
+    logger.debug(f"az_rack= {az_rack}")
     return set([item[1] for item in az_rack])
+
+def get_racks(inventory):
+    return sorted(list(set([item[3] for item in inventory])))
 
 def get_nodes_in_rack(inventory,rack):
     return [row for row in inventory if row[3] == rack]
@@ -404,7 +412,7 @@ def nemo_plan_crs(start_date):
     rack_mw_start_date=start_date
     rack_mw_start_time="8:00"
     scheduled_rack_per_day_count=1
-    for rack in get_racks_sorted_by_az(inventory):
+    for rack in get_racks(inventory):
         hosts=[]
         for node in get_nodes_in_rack(inventory, rack):
             for vm in get_vms_in_host(node[1]):
@@ -445,6 +453,7 @@ def nemo_plan_crs(start_date):
             # Next day
             rack_mw_start_date = (datetime.strptime(nearest_weekday, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
         r.close()
+
 
 
 def nemo_list_crs(date):
