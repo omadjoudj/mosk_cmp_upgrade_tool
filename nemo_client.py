@@ -80,9 +80,3 @@ def parse_config():
     return config['nemo']
 
 
-
-if __name__ == "__main__":
-    nemo_config = parse_config()
-    #r = get_cr(1961, **nemo_config)
-    r = create_cr("Test", "2025-05-01T16:00", "2025-05-01T16:00", "example.org", **nemo_config, dryrun=True)
-    print(r)

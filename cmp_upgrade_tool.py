@@ -436,10 +436,16 @@ def nemo_plan_crs(start_date):
             scheduled_rack_per_day_count = 1
             # Next day
             rack_mw_start_date = (datetime.strptime(nearest_weekday, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        r.close()
 
 
 def nemo_process_crs():
-    pass
+    nemo_config = nemo_client.parse_config()
+    today_date = datetime.today().strftime('%Y-%m-%d')
+    r = nemo_client.fetch_crs_list(**nemo_config,on_date=today_date)
+    logger.debug(f"nemo_fetch_crs results = {r.status} {r.reason}")
+    print(r.read())
+    r.close()
 
 
 
