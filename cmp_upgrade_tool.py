@@ -504,7 +504,7 @@ def nemo_freeze(dry_run):
 
         logger.info(f"Setting Nemo CR {cr['id']} status to: pending_deployment")
         if not dry_run:
-            nemo_client.set_cr_status(cr['id'], "pending_deployment", **nemo_config)
+            r = nemo_client.set_cr_status(cr['id'], "pending_deployment", **nemo_config)
         else:
             logger.info("dry-run option detected: Updating Nemo CRs status not sent")
 
