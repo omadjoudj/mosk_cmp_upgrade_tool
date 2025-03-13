@@ -56,7 +56,6 @@ def set_cr_status(cr_id, new_status, nemo_api_endpoint, nemo_api_service_user, n
     cr = get_cr(cr_id, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password)
     cr_data = json.loads(cr.read())
     logger.debug(f"set_cr_status for CR {cr_id}: {cr_data}")
-    print(cr_data)
     cr_data["status"] = new_status
     cr_data["actual_start_date"] = cr_data["planned_start_date"]
     cr_data["actual_end_date"] = cr_data["planned_end_date"]

@@ -479,7 +479,7 @@ def nemo_process_crs():
     #TODO: Continue the implementation
 
 
-def nemo_freeze():
+def nemo_freeze(dry_run):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
     today_date = datetime.today().strftime('%Y-%m-%d')
@@ -496,9 +496,17 @@ def nemo_freeze():
         logger.info(f"CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
         rack = cr['summary'].split(" ")[0].split("/")[2]
         logger.info(f"Disabling rack {CLOUD}/{rack} for placement")
-        rack_enable_disable(inventory, rack, op='disable')
+        
+        if not dry_run:
+            rack_enable_disable(inventory, rack, op='disable')
+        else:
+            logger.info(f"dry-run option detected: disabling rack {rack} not executed")
+
         logger.info(f"Setting Nemo CR {cr['id']} status to: pending_deployment")
-        nemo_client.set_cr_status(cr['id'], "pending_deployment", **nemo_config)
+        if not dry_run:
+            nemo_client.set_cr_status(cr['id'], "pending_deployment", **nemo_config)
+        else:
+            logger.info("dry-run option detected: Updating Nemo CRs status not sent")
 
 
 def check_locks():
@@ -545,6 +553,9 @@ def main():
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
     
     nemo_freeze_racks_parser = subparsers.add_parser('nemo-freeze-racks', help="Freeze the racks for Nemo's CRs scheduled soon")
+    nemo_freeze_racks_parser.add_argument('--dry-run', 
+                          action='store_true',
+                          help='Dry run')
 
     args = parser.parse_args()
     
@@ -592,7 +603,7 @@ def main():
         nemo_process_crs()
     elif args.command == 'nemo-freeze-racks':
         print(f"==> Freezing racks for upcoming changes in Nemo")
-        nemo_freeze()
+        nemo_freeze(args.dry_run)
     else:
         parser.print_help()
 
