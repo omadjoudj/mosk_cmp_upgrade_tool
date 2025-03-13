@@ -184,7 +184,8 @@ def remove_nodeworkloadlock(cmp):
     else:
         return True
 
-def lock_all_nodes(inventory):
+def lock_all_nodes():
+    inventory = get_cmp_inventory()
     for node in inventory:
         create_nodeworkloadlock(node[1])
 
@@ -204,12 +205,11 @@ def rack_release_lock(inventory,rack,unsafe=False):
     logger.debug(inventory_filtered_by_rack)
     for node in inventory_filtered_by_rack:
         if unsafe==True:
+            logger.warning("force-unsafe was specified. Ignoring running VMs")
             remove_nodeworkloadlock(node[1])
         else:
             if check_cmp_upgrade_readiness(node[1]):
                 remove_nodeworkloadlock(node[1])
-
-
 
 def rack_silence_alert(inventory,rack):
     logger.info(f"Silencing alert for the rack: {rack}")
@@ -477,8 +477,15 @@ def nemo_process_crs():
     nemo_list_crs(today_date)
 
 
-def nemo_freeze_racks():
+def nemo_freeze():
     pass
+
+def check_locks():
+    inventory = get_cmp_inventory()
+    status = check_locks_all_nodes(inventory)
+    if status:
+        logger.info("All locks were OK. Upgrade is safe to be started")
+
 
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
@@ -489,13 +496,15 @@ def main():
     
     lock_parser = subparsers.add_parser('lock-all-nodes', help='Lock all nodes')
     check_parser = subparsers.add_parser('check-locks', help='Check locks')
-    list_parser = subparsers.add_parser('list-vms', help='List VMs')
     
     rack_parser = subparsers.add_parser('rack-list-vms', help='List VMs on a specific rack')
     rack_parser.add_argument('rack', type=str, help='Rack name')
     
     release_parser = subparsers.add_parser('rack-release-lock', help='Release lock on a rack')
     release_parser.add_argument('rack', type=str, help='Rack name')
+    release_parser.add_argument('--force-unsafe', 
+                          action='store_true',
+                          help='Force unsafe release of rack lock regardless of presence of running VMs')
     
     disable_parser = subparsers.add_parser('rack-disable', help='Disable a rack')
     disable_parser.add_argument('rack', type=str, help='Rack name')
@@ -514,28 +523,45 @@ def main():
 
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
     
-    nemo_freeze_racks_parser = subparsers.add_parser('nemo-freeze-racks', help="Process Nemo's CRs scheduled now")
+    nemo_freeze_racks_parser = subparsers.add_parser('nemo-freeze', help="Freeze the racks for Nemo's CRs scheduled soon")
 
     args = parser.parse_args()
     
     if args.command == 'lock-all-nodes':
         print("==> Locking all nodes...")
+        lock_all_nodes()
     elif args.command == 'check-locks':
         print("==> Checking locks...")
-    elif args.command == 'list-vms':
-        print("==> Listing VMs...")
+        check_locks()
     elif args.command == 'rack-list-vms':
         print(f"==> Listing VMs in rack: {args.rack}")
+        inventory = get_cmp_inventory()
+        vms = rack_list_vms(inventory, args.rack)
+        filtered_fields_vms = [
+            {field: vm[field] for field in ['ID', 'Name', 'Status']}
+            for sublist in vms 
+            for vm in sublist
+        ]
+        for vm in filtered_fields_vms:
+            print(f"{vm['ID']}\t{vm['Status']}\t{vm['Name']}")
     elif args.command == 'rack-release-lock':
         print(f"==> Releasing lock on rack: {args.rack}")
+        inventory = get_cmp_inventory()
+        rack_release_lock(inventory, args.rack, args.force_unsafe) 
     elif args.command == 'rack-disable':
         print(f"==> Disabling rack: {args.rack}")
+        inventory = get_cmp_inventory()
+        rack_enable_disable(inventory, args.rack, op='disable')
     elif args.command == 'rack-enable':
         print(f"==> Enabling rack: {args.rack}")
+        inventory = get_cmp_inventory()
+        rack_enable_disable(inventory, args.rack, op='enable')
     elif args.command == 'rack-live-migrate':
         print(f"==> Migrating VMs in rack: {args.rack}")
     elif args.command == 'rack-silence':
         print(f"==> Silencing notifications on rack: {args.rack}")
+        inventory = get_cmp_inventory()
+        rack_silence_alert(inventory, args.rack)
     elif args.command == 'nemo-plan-crs':
         print(f"==> Creating CRs on Nemo")
         nemo_plan_crs(args.startdate)
@@ -544,7 +570,7 @@ def main():
         nemo_process_crs()
     elif args.command == 'nemo-freeze-rack':
         print(f"==> Freezing racks for upcoming changes in Nemo")
-        nemo_freeze_racks()
+        nemo_freeze()
     else:
         parser.print_help()
 
