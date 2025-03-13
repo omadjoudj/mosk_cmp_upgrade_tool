@@ -272,7 +272,8 @@ def rack_enable_disable(inventory,rack,op):
 
 
 def rack_live_migrate(inventory,rack):
-    pass 
+    #TODO: Implement this
+    pass
 
 def get_vm_info(vm_id):
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} server show -f json {vm_id}"
@@ -475,10 +476,30 @@ def nemo_list_crs(date):
 def nemo_process_crs():
     today_date = datetime.today().strftime('%Y-%m-%d')
     nemo_list_crs(today_date)
+    #TODO: Continue the implementation
 
 
 def nemo_freeze():
-    pass
+    nemo_config = nemo_client.parse_config()
+    inventory = get_cmp_inventory()
+    today_date = datetime.today().strftime('%Y-%m-%d')
+    tomorrow_date = (datetime.strptime(today_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    if is_friday_or_weekend(tomorrow_date):
+        next_mw_date = find_nearest_weekday(tomorrow_date).strftime("%Y-%m-%d")
+    else:
+        next_mw_date = tomorrow_date
+    logger.debug(f"next_mw_date = {next_mw_date}")
+    nemo_crs_freeze = nemo_list_crs(next_mw_date)
+    logger.debug(f"CRS to get frozen = {nemo_crs_freeze}")
+    logger.info(f"Found {len(nemo_crs_freeze)} CRs to be frozen on {CLOUD}")
+    for cr in nemo_crs_freeze:
+        logger.info(f"CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
+        rack = cr['summary'].split(" ")[0].split("/")[2]
+        logger.info(f"Disabling rack {CLOUD}/{rack} for placement")
+        rack_enable_disable(inventory, rack, op='disable')
+        logger.info(f"Setting Nemo CR {cr['id']} status to: pending_deployment")
+        nemo_client.set_cr_status(cr['id'], "pending_deployment", **nemo_config)
+
 
 def check_locks():
     inventory = get_cmp_inventory()
@@ -523,7 +544,7 @@ def main():
 
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
     
-    nemo_freeze_racks_parser = subparsers.add_parser('nemo-freeze', help="Freeze the racks for Nemo's CRs scheduled soon")
+    nemo_freeze_racks_parser = subparsers.add_parser('nemo-freeze-racks', help="Freeze the racks for Nemo's CRs scheduled soon")
 
     args = parser.parse_args()
     
@@ -558,6 +579,7 @@ def main():
         rack_enable_disable(inventory, args.rack, op='enable')
     elif args.command == 'rack-live-migrate':
         print(f"==> Migrating VMs in rack: {args.rack}")
+        print("*** Not implemented yet ***")
     elif args.command == 'rack-silence':
         print(f"==> Silencing notifications on rack: {args.rack}")
         inventory = get_cmp_inventory()
@@ -568,7 +590,7 @@ def main():
     elif args.command == 'nemo-process-crs':
         print(f"==> Processing Nemo's CRs scheduled now")
         nemo_process_crs()
-    elif args.command == 'nemo-freeze-rack':
+    elif args.command == 'nemo-freeze-racks':
         print(f"==> Freezing racks for upcoming changes in Nemo")
         nemo_freeze()
     else:

@@ -52,6 +52,21 @@ def rest_client(verb, url, username, password, body=None, headers=None):
 def get_cr(cr_id, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password):
     return rest_client('GET', f'{nemo_api_endpoint}/change_man/api/v1/cr/{cr_id}/', nemo_api_service_user, nemo_api_service_user_password)
 
+def set_cr_status(cr_id, new_status, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password):
+    cr = get_cr(cr_id, nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password)
+    cr_data = json.loads(cr.read())
+    logger.debug(f"set_cr_status for CR {cr_id}: {cr_data}")
+    print(cr_data)
+    cr_data["status"] = new_status
+    cr_data["actual_start_date"] = cr_data["planned_start_date"]
+    cr_data["actual_end_date"] = cr_data["planned_end_date"]
+    logger.debug(f"PUT {cr_id}: \n {cr_data}")
+    r = rest_client('PUT', f'{nemo_api_endpoint}/change_man/api/v1/cr/{cr_id}/', nemo_api_service_user, nemo_api_service_user_password,cr_data)
+    logger.debug(f"Nemo update status API call return: Status: {r.status}, Reason: {r.reason}, Response: {r.read()}")
+    if r.status != 200:
+        logger.error(f"Nemo set status call returned {r.status}")
+        return r
+
 def fetch_crs_list(nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, limit=1000000, on_date="", status="planned"):
     return rest_client('GET', f'{nemo_api_endpoint}/change_man/api/v1/cr/?limit={limit}&on_date={on_date}&status={status}', nemo_api_service_user, nemo_api_service_user_password)
 
@@ -77,7 +92,7 @@ def create_cr(summary, planned_start_date, planned_end_date, hosts, nemo_api_end
         r = rest_client('POST', f'{nemo_api_endpoint}/change_man/api/v1/cr/', nemo_api_service_user, nemo_api_service_user_password,cr_template_json)
         logger.debug(f"Nemo create API call return: Status: {r.status}, Reason: {r.reason}, Response: {r.read()}")
         if r.status != 201:
-            logger.error(f"Nemo call returned {r.status}")
+            logger.error(f"Nemo CR create call returned {r.status}")
         return r
         
 

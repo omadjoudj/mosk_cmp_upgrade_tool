@@ -97,6 +97,6 @@ def test_rack_list_vms():
 def test_get_racks_sorted_by_az():
     inventory = cmp_upgrade_tool.get_cmp_inventory()
     racks = cmp_upgrade_tool.get_racks_sorted_by_az(inventory)
-    print(f"racls= {racks}")
-    print(f"len(racls) = {len(racks)}")
+    print(f"racks= {racks}")
+    print(f"len(racks) = {len(racks)}")
     pprint(inventory)
