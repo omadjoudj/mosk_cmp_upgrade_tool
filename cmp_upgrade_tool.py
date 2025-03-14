@@ -466,9 +466,9 @@ def nemo_plan_crs(start_date):
 
 
 
-def nemo_list_crs(date):
+def nemo_list_crs(date, status="planned"):
     nemo_config = nemo_client.parse_config()
-    r = nemo_client.fetch_crs_list(**nemo_config,on_date=date)
+    r = nemo_client.fetch_crs_list(**nemo_config,on_date=date, status=status)
     logger.debug(f"nemo_fetch_crs results = {r.status} {r.reason}")
     crs = json.loads(r.read())
     logger.debug(f"crs = {crs}")
@@ -483,9 +483,10 @@ def nemo_list_crs(date):
     return crs_of_the_date
 
 def nemo_process_crs(dry_run):
+    nemo_config = nemo_client.parse_config()
+    inventory=get_cmp_inventory()
     today_date = datetime.today().strftime('%Y-%m-%d')
-    utc_now = datetime.now(timezone.utc).time()
-    crs_today = nemo_list_crs(today_date)
+    crs_today = nemo_list_crs(today_date, status="pending_deployment")
     logger.debug(f"crs_today = {crs_today}")
     logger.info(f"Found {len(crs_today)} CRs to be executed today on {CLOUD}")
     logger.info(f"Checking if the current time matches the announced MW")
@@ -494,8 +495,22 @@ def nemo_process_crs(dry_run):
         mw_start_time_utc = cr['planned_start_date'].split(" ")[1]
         mw_end_time_utc = cr['planned_end_date'].split(" ")[1]
         rack = cr['summary'].split(" ")[0].split("/")[2]
-        logger.info(f"utc_now={utc_now} mw_start_time_utc={mw_start_time_utc} mw_end_time_utc={mw_end_time_utc}")
-        #logger.info(f"Disabling rack {CLOUD}/{rack} for placement")
+        utc_now = datetime.now(timezone.utc).time()
+        logger.debug(f"current_time_utc={utc_now} mw_start_time_utc={mw_start_time_utc} mw_end_time_utc={mw_end_time_utc}")
+        if is_mw_allowed_now(mw_start_time_utc,mw_end_time_utc):
+            if dry_run:
+                logger.info(f"dry-run detected: Not setting CR {cr['id']} status to in_progress")
+                logger.info(f"dry-run detected: Not releasing the locks on rack {rack}")
+            else:
+                logger.info(f"Setting CR {cr['id']} status to in_progress")
+                r = nemo_client.set_cr_status(cr['id'], "in_progress", **nemo_config)
+                logger.info(f"Releasing the locks on rack {rack} with unsafe option (running VMs check is disabled)")
+                rack_release_lock(inventory, rack, unsafe=True)
+        else:
+            logger.info(f"Current time {utc_now} utc is not within the CR {cr['id']} MW time range {mw_start_time_utc} -- {mw_end_time_utc} utc")
+
+
+
 
 def nemo_freeze(dry_run):
     nemo_config = nemo_client.parse_config()

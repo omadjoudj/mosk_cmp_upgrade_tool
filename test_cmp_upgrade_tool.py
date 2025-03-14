@@ -103,8 +103,7 @@ def test_get_racks_sorted_by_az():
 
 """
 def test_is_mw_allowed_now():
-    utc_now = "2025-03-14 02:53:39.748449+00:00"
-    mw_start_time_utc = "14:00"
+    mw_start_time_utc = "04:00"
     mw_end_time_utc = "17:00"
 
     result = cmp_upgrade_tool.is_mw_allowed_now(mw_start_time_utc, mw_end_time_utc)

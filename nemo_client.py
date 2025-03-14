@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# A small module to interact with Nemo ChangeMan written from scratch to avoid external dependencies
+# A small module to interact with Nemo ChangeMan written from scratch without external dependencies
 # Customization owner: omadjoudj
 
 from http.client import HTTPSConnection
