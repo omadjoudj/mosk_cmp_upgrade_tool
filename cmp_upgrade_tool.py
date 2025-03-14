@@ -209,6 +209,12 @@ def rack_release_lock(inventory,rack,unsafe=False):
             if check_cmp_upgrade_readiness(node[1]):
                 remove_nodeworkloadlock(node[1])
 
+def check_locks():
+    inventory = get_cmp_inventory()
+    status = check_locks_all_nodes(inventory)
+    if status:
+        logger.info("All locks were OK. Upgrade is safe to be started")
+
 def rack_silence_alert(inventory,rack):
     logger.info(f"Silencing alert for the rack: {rack}")
     inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
@@ -466,7 +472,7 @@ def nemo_plan_crs(start_date):
 
 
 
-def nemo_list_crs(date, status="planned"):
+def nemo_list_crs_by_date(date, status="planned"):
     nemo_config = nemo_client.parse_config()
     r = nemo_client.fetch_crs_list(**nemo_config,on_date=date, status=status)
     logger.debug(f"nemo_fetch_crs results = {r.status} {r.reason}")
@@ -486,7 +492,7 @@ def nemo_process_crs(dry_run):
     nemo_config = nemo_client.parse_config()
     inventory=get_cmp_inventory()
     today_date = datetime.today().strftime('%Y-%m-%d')
-    crs_today = nemo_list_crs(today_date, status="pending_deployment")
+    crs_today = nemo_list_crs_by_date(today_date, status="pending_deployment")
     logger.debug(f"crs_today = {crs_today}")
     logger.info(f"Found {len(crs_today)} CRs to be executed today on {CLOUD}")
     logger.info(f"Checking if the current time matches the announced MW")
@@ -509,8 +515,11 @@ def nemo_process_crs(dry_run):
         else:
             logger.info(f"Current time {utc_now} utc is not within the CR {cr['id']} MW time range {mw_start_time_utc} -- {mw_end_time_utc} utc")
 
-
-
+def nemo_list_crs():
+    nemo_config = nemo_client.parse_config()
+    nemo_crs = nemo_list_crs_by_date('')
+    for cr in nemo_crs:
+        print(f"CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
 
 def nemo_freeze(dry_run):
     nemo_config = nemo_client.parse_config()
@@ -522,7 +531,7 @@ def nemo_freeze(dry_run):
     else:
         next_mw_date = tomorrow_date
     logger.debug(f"next_mw_date = {next_mw_date}")
-    nemo_crs_freeze = nemo_list_crs(next_mw_date)
+    nemo_crs_freeze = nemo_list_crs_by_date(next_mw_date)
     logger.debug(f"CRS to get frozen = {nemo_crs_freeze}")
     logger.info(f"Found {len(nemo_crs_freeze)} CRs to be frozen on {CLOUD}")
     for cr in nemo_crs_freeze:
@@ -541,12 +550,6 @@ def nemo_freeze(dry_run):
         else:
             logger.info("dry-run option detected: Updating Nemo CRs status not sent")
 
-
-def check_locks():
-    inventory = get_cmp_inventory()
-    status = check_locks_all_nodes(inventory)
-    if status:
-        logger.info("All locks were OK. Upgrade is safe to be started")
 
 
 def main():
@@ -583,6 +586,11 @@ def main():
     nemo_plan_crs_parser = subparsers.add_parser('nemo-plan-crs', help='Create the CRs in Nemo')
     nemo_plan_crs_parser.add_argument("startdate", type=str, help="A date time when the CRs start")
 
+    nemo_list_crs_parser = subparsers.add_parser('nemo-list-crs', help='List OpsCare\'s CRs in Nemo for the current selected cloud (`CLOUD env variable`)')
+    
+    nemo_close_crs_parser = subparsers.add_parser('nemo-close-crs', help='Close today\'s CRs in Nemo')
+
+    
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
     nemo_process_crs_parser.add_argument('--dry-run', 
                           action='store_true',
@@ -640,6 +648,11 @@ def main():
     elif args.command == 'nemo-freeze-racks':
         print(f"==> Freezing racks for upcoming changes in Nemo")
         nemo_freeze(args.dry_run)
+    elif args.command == 'nemo-list-crs':
+        print(f"==> Listing OpsCare\'s CRs in Nemo for the current selected cloud {CLOUD}")
+        nemo_list_crs()
+    elif args.command == 'nemo-close-crs':
+        print(f"==> Closing today\'s CRs in Nemo")
     else:
         parser.print_help()
 
