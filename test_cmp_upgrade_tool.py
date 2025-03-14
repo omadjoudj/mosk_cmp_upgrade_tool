@@ -92,7 +92,6 @@ def test_rack_list_vms():
     rack="z01r09b01"
     print(f"==> VMs in rack {rack}")
     pprint(cmp_upgrade_tool.rack_list_vms(inventory,rack))
-"""
 
 def test_get_racks_sorted_by_az():
     inventory = cmp_upgrade_tool.get_cmp_inventory()
@@ -100,3 +99,13 @@ def test_get_racks_sorted_by_az():
     print(f"racks= {racks}")
     print(f"len(racks) = {len(racks)}")
     pprint(inventory)
+
+
+"""
+def test_is_mw_allowed_now():
+    utc_now = "2025-03-14 02:53:39.748449+00:00"
+    mw_start_time_utc = "14:00"
+    mw_end_time_utc = "17:00"
+
+    result = cmp_upgrade_tool.is_mw_allowed_now(mw_start_time_utc, mw_end_time_utc)
+    print(f"Is current time between {mw_start_time_utc} and {mw_end_time_utc}? {result}")

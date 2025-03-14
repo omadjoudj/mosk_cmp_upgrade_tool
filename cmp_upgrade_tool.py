@@ -2,16 +2,14 @@
 # Customization owner: omadjoudj
 
 ## NOTE:
-
-# openstack client and kubectl are used directly instead of corresponding Python libraries to reduce the dependencies on external libraries
-
-# This script is used by trusted users, data validation was skipped
+# - Openstack client and kubectl are used directly instead of corresponding Python libraries to reduce the dependencies on external libraries
+# - This script is used by trusted users, data validation was skipped
 
 #TODO: Move run commands to a function to make it less verbose 
 
 import argparse
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone, time
 import json
 import logging
 import subprocess
@@ -407,6 +405,17 @@ def find_nearest_weekday(date=None):
 
     return (date + timedelta(days=days_to_next_weekday)).date()
 
+
+def is_mw_allowed_now(start_time_str, end_time_str):
+    
+    current_time = datetime.now(timezone.utc).time()
+    
+    start_time = datetime.strptime(start_time_str, "%H:%M").time()
+    end_time = datetime.strptime(end_time_str, "%H:%M").time()
+    
+    return start_time <= current_time <= end_time
+
+
 def nemo_plan_crs(start_date):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
@@ -473,11 +482,20 @@ def nemo_list_crs(date):
     logger.debug(f"crs_for_the_date = {crs_of_the_date}")
     return crs_of_the_date
 
-def nemo_process_crs():
+def nemo_process_crs(dry_run):
     today_date = datetime.today().strftime('%Y-%m-%d')
-    nemo_list_crs(today_date)
-    #TODO: Continue the implementation
-
+    utc_now = datetime.now(timezone.utc).time()
+    crs_today = nemo_list_crs(today_date)
+    logger.debug(f"crs_today = {crs_today}")
+    logger.info(f"Found {len(crs_today)} CRs to be executed today on {CLOUD}")
+    logger.info(f"Checking if the current time matches the announced MW")
+    for cr in crs_today:
+        logger.info(f"CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
+        mw_start_time_utc = cr['planned_start_date'].split(" ")[1]
+        mw_end_time_utc = cr['planned_end_date'].split(" ")[1]
+        rack = cr['summary'].split(" ")[0].split("/")[2]
+        logger.info(f"utc_now={utc_now} mw_start_time_utc={mw_start_time_utc} mw_end_time_utc={mw_end_time_utc}")
+        #logger.info(f"Disabling rack {CLOUD}/{rack} for placement")
 
 def nemo_freeze(dry_run):
     nemo_config = nemo_client.parse_config()
@@ -551,7 +569,10 @@ def main():
     nemo_plan_crs_parser.add_argument("startdate", type=str, help="A date time when the CRs start")
 
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
-    
+    nemo_process_crs_parser.add_argument('--dry-run', 
+                          action='store_true',
+                          help='Dry run')
+     
     nemo_freeze_racks_parser = subparsers.add_parser('nemo-freeze-racks', help="Freeze the racks for Nemo's CRs scheduled soon")
     nemo_freeze_racks_parser.add_argument('--dry-run', 
                           action='store_true',
@@ -600,7 +621,7 @@ def main():
         nemo_plan_crs(args.startdate)
     elif args.command == 'nemo-process-crs':
         print(f"==> Processing Nemo's CRs scheduled now")
-        nemo_process_crs()
+        nemo_process_crs(args.dry_run)
     elif args.command == 'nemo-freeze-racks':
         print(f"==> Freezing racks for upcoming changes in Nemo")
         nemo_freeze(args.dry_run)
