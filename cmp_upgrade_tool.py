@@ -6,6 +6,7 @@
 # - This script is used by trusted users, data validation was skipped
 
 #TODO: Move run commands to a function to make it less verbose 
+#TODO: use sys.exit status on all functions in main()
 
 import argparse
 from collections import defaultdict
@@ -551,6 +552,19 @@ def nemo_freeze(dry_run):
             logger.info("dry-run option detected: Updating Nemo CRs status not sent")
 
 
+def nemo_close_crs(dry_run,cr_ids):
+    nemo_config = nemo_client.parse_config()
+    for cr_id in cr_ids:
+        logger.info(f"Closing CR {cr_id}")
+        cr = json.loads(nemo_client.get_cr(cr_id, **nemo_config).read())
+        logger.info(f"CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
+        if dry_run:
+            logger.info("dry-run option detected: Closing CR was not performed")
+        else:
+            logger.info(f"Setting CR {cr_id} status to « deployed »")
+            r = nemo_client.set_cr_status(cr_id, new_status="deployed", **nemo_config)
+    return
+    
 
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
@@ -589,8 +603,15 @@ def main():
     nemo_list_crs_parser = subparsers.add_parser('nemo-list-crs', help='List OpsCare\'s CRs in Nemo for the current selected cloud (`CLOUD env variable`)')
     
     nemo_close_crs_parser = subparsers.add_parser('nemo-close-crs', help='Close today\'s CRs in Nemo')
+    nemo_close_crs_parser.add_argument('--dry-run', 
+                          action='store_true',
+                          help='Dry run')
+    nemo_close_crs_parser.add_argument('--cr-ids',
+                                  type=int,
+                                  nargs='+',
+                                  required=True,
+                                  help='List of CR IDs/numbers to close')
 
-    
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
     nemo_process_crs_parser.add_argument('--dry-run', 
                           action='store_true',
@@ -652,7 +673,8 @@ def main():
         print(f"==> Listing OpsCare\'s CRs in Nemo for the current selected cloud {CLOUD}")
         nemo_list_crs()
     elif args.command == 'nemo-close-crs':
-        print(f"==> Closing today\'s CRs in Nemo")
+        print(f"==> Closing CRs in Nemo")
+        nemo_close_crs(args.dry_run, args.cr_ids)
     else:
         parser.print_help()
 

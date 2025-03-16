@@ -37,7 +37,6 @@ def rest_client(verb, url, username, password, body=None, headers=None):
     if body is not None:
         if isinstance(body, dict):
             body = json.dumps(body)
-            print(body)
             final_headers['Content-Type'] = 'application/json'
         elif isinstance(body, str):
             final_headers['Content-Type'] = 'application/json'
@@ -64,7 +63,7 @@ def set_cr_status(cr_id, new_status, nemo_api_endpoint, nemo_api_service_user, n
     logger.debug(f"Nemo update status API call return: Status: {r.status}, Reason: {r.reason}, Response: {r.read()}")
     if r.status != 200:
         logger.error(f"Nemo set status call returned {r.status}")
-        return r
+    return r
 
 def fetch_crs_list(nemo_api_endpoint, nemo_api_service_user, nemo_api_service_user_password, limit=1000000, on_date="", status="planned"):
     return rest_client('GET', f'{nemo_api_endpoint}/change_man/api/v1/cr/?limit={limit}&on_date={on_date}&status={status}', nemo_api_service_user, nemo_api_service_user_password)
