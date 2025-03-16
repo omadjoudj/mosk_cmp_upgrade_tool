@@ -3,7 +3,6 @@ import cmp_upgrade_tool
 import re
 from pprint import pprint
 
-"""
 def test_func_get_mosk_cluster_ns():
     r = cmp_upgrade_tool.get_mosk_cluster_ns()
     assert r == "lon1-dev-mos001"
@@ -101,7 +100,6 @@ def test_get_racks_sorted_by_az():
     pprint(inventory)
 
 
-"""
 def test_is_mw_allowed_now():
     mw_start_time_utc = "04:00"
     mw_end_time_utc = "17:00"
