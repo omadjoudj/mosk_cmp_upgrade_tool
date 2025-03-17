@@ -7,6 +7,7 @@
 
 #TODO: Move run commands to a function to make it less verbose 
 #TODO: use sys.exit status on all functions in main()
+#TODO: Implement: nemo-refresh-rack / nemo-close-past-crs / setup-update-groups / rack-live-migrate
 
 import argparse
 from collections import defaultdict
