@@ -518,7 +518,7 @@ def nemo_process_crs(dry_run):
 
 def nemo_list_crs():
     nemo_config = nemo_client.parse_config()
-    nemo_crs = nemo_list_crs_by_date('')
+    nemo_crs = nemo_list_crs_by_date(date='', status='')
     for cr in nemo_crs:
         print(f"CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
 
