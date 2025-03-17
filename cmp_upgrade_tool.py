@@ -512,6 +512,7 @@ def nemo_process_crs(dry_run):
                 logger.info(f"Setting CR {cr['id']} status to in_progress")
                 r = nemo_client.set_cr_status(cr['id'], "in_progress", **nemo_config)
                 logger.info(f"Releasing the locks on rack {rack} with unsafe option (running VMs check is disabled)")
+                rack_silence_alert(inventory, rack)
                 rack_release_lock(inventory, rack, unsafe=True)
         else:
             logger.info(f"Current time {utc_now} utc is not within the CR {cr['id']} MW time range {mw_start_time_utc} -- {mw_end_time_utc} utc")
