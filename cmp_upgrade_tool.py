@@ -67,12 +67,33 @@ def get_vms_in_host(cmp):
 def check_env():
     cmd = ["kubectl", "config", "get-contexts"]
     result = subprocess.run(cmd, capture_output=True, text=True)
+    if 'CLOUD' not in os.environ:
+        logger.error(f"CLOUD environment variable not defined")
+        return False
     if "mcc" not in result.stdout and "mosk" not in result.stdout:
         logger.error(f"Kubernetes context is not set correctly")
         return False
     if os.getenv("CLOUD").replace("_","-") not in os.getenv("OS_AUTH_URL"):
-        logger.error(f"CLOUD env var does not match the exported Openstack env")
+        logger.error(f"CLOUD environment variable does not match the exported Openstack environment")
         return False
+    
+    cmd = f"openstack {OPENSTACK_EXTRA_ARGS} token issue -f json"
+    result = subprocess.run( cmd, shell=True, check=False, text=True, 
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    
+    if 'Unauthorized (HTTP 401)' in result.stderr or 'Unauthorized (HTTP 401)' in result.stderr:
+        logger.error(f"openstack returned Unauthorized (HTTP 401).")
+        logger.error(f"Please refresh the token via « oswitch »")
+        return False
+    if 'Failed to validate token (HTTP 404)' in result.stderr or 'Failed to validate token (HTTP 404)' in result.stderr:
+        logger.error(f"openstack returned Failed to validate token (HTTP 404).")
+        logger.error(f"Please refresh the token via « oswitch »")
+        return False
+    if result.returncode:
+        logger.error(f"An error occurred while check openstack command: Returned exit code {result.returncode} : {result.stdout} / {result.stderr}")
+        logger.error(f"Please refresh the token via « oswitch »")
+        return False
+    
     return True
         
 def get_az_for_host(host_name, hosts_list):
@@ -658,6 +679,9 @@ def main():
                           help='Dry run')
 
     args = parser.parse_args()
+    
+    if not check_env():
+        sys.exit(1)
     
     if args.command == 'lock-all-nodes':
         print("==> Locking all nodes...")
