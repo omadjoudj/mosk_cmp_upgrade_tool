@@ -65,6 +65,7 @@ def get_vms_in_host(cmp):
     return json.loads(result.stdout)
         
 def check_env():
+    logger.info("Checking the environment")
     cmd = ["kubectl", "config", "get-contexts"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if 'CLOUD' not in os.environ:
@@ -80,17 +81,8 @@ def check_env():
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} token issue -f json"
     result = subprocess.run( cmd, shell=True, check=False, text=True, 
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
-    if 'Unauthorized (HTTP 401)' in result.stderr or 'Unauthorized (HTTP 401)' in result.stderr:
-        logger.error(f"openstack returned Unauthorized (HTTP 401).")
-        logger.error(f"Please refresh the token via « oswitch »")
-        return False
-    if 'Failed to validate token (HTTP 404)' in result.stderr or 'Failed to validate token (HTTP 404)' in result.stderr:
-        logger.error(f"openstack returned Failed to validate token (HTTP 404).")
-        logger.error(f"Please refresh the token via « oswitch »")
-        return False
     if result.returncode:
-        logger.error(f"An error occurred while check openstack command: Returned exit code {result.returncode} : {result.stdout} / {result.stderr}")
+        logger.error(f"An error occurred during check openstack command: Returned exit code {result.returncode} : {result.stdout} {result.stderr}")
         logger.error(f"Please refresh the token via « oswitch »")
         return False
     
@@ -478,7 +470,8 @@ def nemo_plan_crs(start_date):
         elif scheduled_rack_per_day_count == 3:
             rack_mw_start_time="14:00"
             rack_mw_end_time = "17:00"
-        
+
+        logger.info("Creating CR in Nemo") 
         r = nemo_client.create_cr(summary, 
                                     f"{nearest_weekday}T{rack_mw_start_time}", 
                                     f"{nearest_weekday}T{rack_mw_end_time}", 
@@ -606,7 +599,7 @@ def nemo_refresh_crs(dry_run):
                 else:
                     logger.info(f"Skipping healthcheck_SNAT VM Rack {rack} / VM {vm['ID']}")
         if not dry_run:
-            logger.info(f"Update hosts section of the CR {cr['id']}")
+            logger.info(f"Updating hosts section of the CR {cr['id']}")
             nemo_client.update_hosts_section(cr['id'], hosts=hosts, **nemo_config)
         else:
             logger.info(f"dry-run detected: Hosts section to be re-populated in CR {cr['id']} with: {hosts}")
@@ -684,13 +677,13 @@ def main():
         sys.exit(1)
     
     if args.command == 'lock-all-nodes':
-        print("==> Locking all nodes...")
+        logger.info("==> Locking all nodes...")
         lock_all_nodes()
     elif args.command == 'check-locks':
-        print("==> Checking locks...")
+        logger.info("==> Checking locks...")
         check_locks()
     elif args.command == 'rack-list-vms':
-        print(f"==> Listing VMs in rack: {args.rack}")
+        logger.info(f"==> Listing VMs in rack: {args.rack}")
         inventory = get_cmp_inventory()
         vms = rack_list_vms(inventory, args.rack)
         filtered_fields_vms = [
@@ -701,26 +694,26 @@ def main():
         for vm in filtered_fields_vms:
             print(f"{vm['ID']}\t{vm['Status']}\t{vm['Name']}")
     elif args.command == 'rack-release-lock':
-        print(f"==> Releasing lock on rack: {args.rack}")
+        logger.info(f"==> Releasing lock on rack: {args.rack}")
         inventory = get_cmp_inventory()
         rack_release_lock(inventory, args.rack, args.force_unsafe) 
     elif args.command == 'rack-disable':
-        print(f"==> Disabling rack: {args.rack}")
+        logger.info(f"==> Disabling rack: {args.rack}")
         inventory = get_cmp_inventory()
         rack_enable_disable(inventory, args.rack, op='disable')
     elif args.command == 'rack-enable':
-        print(f"==> Enabling rack: {args.rack}")
+        logger.info(f"==> Enabling rack: {args.rack}")
         inventory = get_cmp_inventory()
         rack_enable_disable(inventory, args.rack, op='enable')
     elif args.command == 'rack-live-migrate':
-        print(f"==> Migrating VMs in rack: {args.rack}")
-        print("*** Not implemented yet ***")
+        logger.info(f"==> Migrating VMs in rack: {args.rack}")
+        logger.info("*** Not implemented yet ***")
     elif args.command == 'rack-silence':
-        print(f"==> Silencing notifications on rack: {args.rack}")
+        logger.info(f"==> Silencing notifications on rack: {args.rack}")
         inventory = get_cmp_inventory()
         rack_silence_alert(inventory, args.rack)
     elif args.command == 'nemo-plan-crs':
-        print(f"==> Creating CRs on Nemo")
+        logger.info(f"==> Creating CRs on Nemo")
         nemo_plan_crs(args.startdate)
     elif args.command == 'nemo-process-crs':
         print(f"==> Processing Nemo's CRs scheduled now")
@@ -729,13 +722,13 @@ def main():
         print(f"==> Freezing racks for upcoming changes in Nemo")
         nemo_freeze(args.dry_run)
     elif args.command == 'nemo-list-crs':
-        print(f"==> Listing OpsCare\'s CRs in Nemo for the current selected cloud {CLOUD}")
+        logger.info(f"==> Listing OpsCare\'s CRs in Nemo for the current selected cloud {CLOUD}")
         nemo_list_crs()
     elif args.command == 'nemo-close-crs':
-        print(f"==> Closing CRs in Nemo")
+        logger.info(f"==> Closing CRs in Nemo")
         nemo_close_crs(args.dry_run, args.cr_ids)
     elif args.command == 'nemo-refresh-crs':
-        print(f"==> Syncing the VMs list of the existing CRs in Nemo")
+        logger.info(f"==> Syncing the VMs list of the existing CRs in Nemo")
         nemo_refresh_crs(args.dry_run)
     else:
         parser.print_help()
