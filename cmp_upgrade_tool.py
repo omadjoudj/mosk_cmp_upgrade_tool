@@ -677,13 +677,13 @@ def main():
         sys.exit(1)
     
     if args.command == 'lock-all-nodes':
-        logger.info("==> Locking all nodes...")
+        logger.info("Locking all nodes...")
         lock_all_nodes()
     elif args.command == 'check-locks':
-        logger.info("==> Checking locks...")
+        logger.info("Checking locks...")
         check_locks()
     elif args.command == 'rack-list-vms':
-        logger.info(f"==> Listing VMs in rack: {args.rack}")
+        logger.info(f"Listing VMs in rack: {args.rack}")
         inventory = get_cmp_inventory()
         vms = rack_list_vms(inventory, args.rack)
         filtered_fields_vms = [
@@ -694,41 +694,41 @@ def main():
         for vm in filtered_fields_vms:
             print(f"{vm['ID']}\t{vm['Status']}\t{vm['Name']}")
     elif args.command == 'rack-release-lock':
-        logger.info(f"==> Releasing lock on rack: {args.rack}")
+        logger.info(f"Releasing lock on rack: {args.rack}")
         inventory = get_cmp_inventory()
         rack_release_lock(inventory, args.rack, args.force_unsafe) 
     elif args.command == 'rack-disable':
-        logger.info(f"==> Disabling rack: {args.rack}")
+        logger.info(f"Disabling rack: {args.rack}")
         inventory = get_cmp_inventory()
         rack_enable_disable(inventory, args.rack, op='disable')
     elif args.command == 'rack-enable':
-        logger.info(f"==> Enabling rack: {args.rack}")
+        logger.info(f"Enabling rack: {args.rack}")
         inventory = get_cmp_inventory()
         rack_enable_disable(inventory, args.rack, op='enable')
     elif args.command == 'rack-live-migrate':
-        logger.info(f"==> Migrating VMs in rack: {args.rack}")
+        logger.info(f"Migrating VMs in rack: {args.rack}")
         logger.info("*** Not implemented yet ***")
     elif args.command == 'rack-silence':
-        logger.info(f"==> Silencing notifications on rack: {args.rack}")
+        logger.info(f"Silencing notifications on rack: {args.rack}")
         inventory = get_cmp_inventory()
         rack_silence_alert(inventory, args.rack)
     elif args.command == 'nemo-plan-crs':
-        logger.info(f"==> Creating CRs on Nemo")
+        logger.info(f"Creating CRs on Nemo")
         nemo_plan_crs(args.startdate)
     elif args.command == 'nemo-process-crs':
-        print(f"==> Processing Nemo's CRs scheduled now")
+        print(f"Processing Nemo's CRs scheduled now")
         nemo_process_crs(args.dry_run)
     elif args.command == 'nemo-freeze-racks':
-        print(f"==> Freezing racks for upcoming changes in Nemo")
+        print(f"Freezing racks for upcoming changes in Nemo")
         nemo_freeze(args.dry_run)
     elif args.command == 'nemo-list-crs':
-        logger.info(f"==> Listing OpsCare\'s CRs in Nemo for the current selected cloud {CLOUD}")
+        logger.info(f"Listing OpsCare\'s CRs in Nemo for the current selected cloud {CLOUD}")
         nemo_list_crs()
     elif args.command == 'nemo-close-crs':
-        logger.info(f"==> Closing CRs in Nemo")
+        logger.info(f"Closing CRs in Nemo")
         nemo_close_crs(args.dry_run, args.cr_ids)
     elif args.command == 'nemo-refresh-crs':
-        logger.info(f"==> Syncing the VMs list of the existing CRs in Nemo")
+        logger.info(f"Syncing the VMs list of the existing CRs in Nemo")
         nemo_refresh_crs(args.dry_run)
     else:
         parser.print_help()
