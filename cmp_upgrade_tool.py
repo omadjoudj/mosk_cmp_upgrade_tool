@@ -7,7 +7,7 @@
 
 #TODO: Move run commands to a function to make it less verbose 
 #TODO: use sys.exit status on all functions in main()
-#TODO: Implement: nemo-refresh-rack / nemo-close-past-crs / setup-update-groups / rack-live-migrate
+#TODO: Implement: nemo-close-past-crs / setup-update-groups / rack-live-migrate
 
 import argparse
 from collections import defaultdict
@@ -569,6 +569,28 @@ def nemo_close_crs(dry_run,cr_ids):
     return
     
 
+def nemo_refresh_crs(dry_run):
+    nemo_config = nemo_client.parse_config()
+    inventory = get_cmp_inventory()
+    crs = nemo_list_crs_by_date(date="")
+    logger.debug(f"Got CRS = {crs}")
+    for cr in crs:
+        rack = cr['summary'].split(" ")[0].split("/")[2]
+        hosts=[]
+        for node in get_nodes_in_rack(inventory, rack):
+            for vm in get_vms_in_host(node[1]):
+                if not vm['Name'].startswith('healthcheck_SNAT_'):
+                    logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
+                    hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1]))
+                else:
+                    logger.info(f"Skipping healthcheck_SNAT VM Rack {rack} / VM {vm['ID']}")
+        if not dry_run:
+            logger.info(f"Update hosts section of the CR {cr['id']}")
+            nemo_client.update_hosts_section(cr['id'], hosts=hosts, **nemo_config)
+        else:
+            logger.info(f"dry-run detected: Hosts section to be re-populated in CR {cr['id']} with: {hosts}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
     
@@ -625,6 +647,16 @@ def main():
                           action='store_true',
                           help='Dry run')
 
+    nemo_refresh_crs_parser = subparsers.add_parser('nemo-refresh-crs', help="Sync the VMs list to existing CRs")
+    nemo_refresh_crs_parser.add_argument('--dry-run', 
+                          action='store_true',
+                          help='Dry run')
+
+    setup_updategroups_parser = subparsers.add_parser('setup-updategroups', help="Create and apply the updateGroups")
+    setup_updategroups_parser.add_argument('--dry-run', 
+                          action='store_true',
+                          help='Dry run')
+
     args = parser.parse_args()
     
     if args.command == 'lock-all-nodes':
@@ -678,6 +710,9 @@ def main():
     elif args.command == 'nemo-close-crs':
         print(f"==> Closing CRs in Nemo")
         nemo_close_crs(args.dry_run, args.cr_ids)
+    elif args.command == 'nemo-refresh-crs':
+        print(f"==> Syncing the VMs list of the existing CRs in Nemo")
+        nemo_refresh_crs(args.dry_run)
     else:
         parser.print_help()
 
