@@ -7,7 +7,7 @@
 
 #TODO: Move run commands to a function to make it less verbose 
 #TODO: use sys.exit status on all functions in main()
-#TODO: Implement: nemo-edit-cr / setup-update-groups / rack-live-migrate
+#TODO: Implement: setup-update-groups / rack-live-migrate
 
 import argparse
 from collections import defaultdict
@@ -603,7 +603,9 @@ def nemo_close_crs(dry_run,cr_ids):
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
-    crs = nemo_list_crs_by_date(date="")
+    crs_in_planned = nemo_list_crs_by_date(date="")
+    crs_in_pending_deployment = nemo_list_crs_by_date(date="", status="pending_deployment")
+    crs = crs_in_pending_deployment + crs_in_planned
     logger.debug(f"Got CRS = {crs}")
     for cr in crs:
         rack = cr['summary'].split(" ")[0].split("/")[2]
@@ -687,7 +689,7 @@ def main():
     setup_updategroups_parser.add_argument('--dry-run', 
                           action='store_true',
                           help='Dry run')
-
+    
     args = parser.parse_args()
     
     if not check_env():
