@@ -734,10 +734,10 @@ def main():
         logger.info(f"Creating CRs on Nemo")
         nemo_plan_crs(args.startdate)
     elif args.command == 'nemo-process-crs':
-        print(f"Processing Nemo's CRs scheduled now")
+        logger.info(f"Processing Nemo's CRs scheduled now")
         nemo_process_crs(args.dry_run)
     elif args.command == 'nemo-freeze-racks':
-        print(f"Freezing racks for upcoming changes in Nemo")
+        logger.info(f"Freezing racks for upcoming changes in Nemo")
         nemo_freeze(args.dry_run)
     elif args.command == 'nemo-list-crs':
         logger.info(f"Listing OpsCare\'s CRs in Nemo for the current selected cloud {CLOUD}")
