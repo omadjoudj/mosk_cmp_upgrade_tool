@@ -292,8 +292,25 @@ def rack_enable_disable(inventory,rack,op):
 
 
 def rack_live_migrate(inventory,rack):
-    #TODO: Implement this
-    pass
+    vms_in_rack = rack_list_vms(inventory, rack)
+    status=True
+    filtered_fields_vms = [
+            {field: vm[field] for field in ['ID', 'Name', 'Status']}
+            for sublist in vms_in_rack
+            for vm in sublist
+        ]
+    logger.debug(f"rack_live_migrate:filtered_fields_vms= {filtered_fields_vms}")
+    logger.info(f"Starting live-migration of the VMs hosted in the rack {rack}")
+    for vm in filtered_fields_vms:
+        cmd=f"openstack {OPENSTACK_EXTRA_ARGS} server migrate --live {vm['ID']}"
+        logger.info(f"Live-migrating VM {vm['ID']}")
+        result = subprocess.run(
+            cmd, shell=True, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        if result.returncode != 0:
+            logger.error(f"openstack server migrate command failed: {result.stderr}")
+            status=False
+    return status
 
 def get_vm_info(vm_id):
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} server show -f json {vm_id}"
@@ -706,8 +723,9 @@ def main():
         inventory = get_cmp_inventory()
         rack_enable_disable(inventory, args.rack, op='enable')
     elif args.command == 'rack-live-migrate':
-        logger.info(f"Migrating VMs in rack: {args.rack}")
-        logger.info("*** Not implemented yet ***")
+        logger.info(f"Preparing the live-migration of VMs hosted in rack: {args.rack}")
+        inventory = get_cmp_inventory()
+        rack_live_migrate(inventory, args.rack)
     elif args.command == 'rack-silence':
         logger.info(f"Silencing notifications on rack: {args.rack}")
         inventory = get_cmp_inventory()
