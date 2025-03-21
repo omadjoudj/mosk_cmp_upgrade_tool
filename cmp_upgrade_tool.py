@@ -715,6 +715,7 @@ def main():
     elif args.command == 'rack-release-lock':
         logger.info(f"Releasing lock on rack: {args.rack}")
         inventory = get_cmp_inventory()
+        rack_silence_alert(inventory, args.rack)
         rack_release_lock(inventory, args.rack, args.force_unsafe) 
     elif args.command == 'rack-disable':
         logger.info(f"Disabling rack: {args.rack}")
