@@ -660,7 +660,7 @@ def main():
 
     nemo_list_crs_parser = subparsers.add_parser('nemo-list-crs', help='List OpsCare\'s CRs in Nemo for the current selected cloud (`CLOUD env variable`)')
     
-    nemo_close_crs_parser = subparsers.add_parser('nemo-close-crs', help='Close today\'s CRs in Nemo')
+    nemo_close_crs_parser = subparsers.add_parser('nemo-close-crs', help='Close CRs in Nemo')
     nemo_close_crs_parser.add_argument('--dry-run', 
                           action='store_true',
                           help='Dry run')
