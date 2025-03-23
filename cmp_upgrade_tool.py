@@ -20,20 +20,20 @@ import os
 import sys
 import socket
 import nemo_client
-
+from colorlog import CustomFormatter
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
 
-formatter = logging.Formatter(
-    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-
-logger = logging.getLogger('cmp-upgrade-tool')
+logger = logging.getLogger("cmp-upgrade-tool")
 logger.setLevel(LOGLEVEL)
-logger.addHandler(handler)
+
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+
+ch.setFormatter(CustomFormatter())
+
+logger.addHandler(ch)
 
 
 TOOL_NAME="custom-opscare-openstack-cmp-upgrade-tool"
