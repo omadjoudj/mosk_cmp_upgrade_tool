@@ -6,8 +6,6 @@
 # - This script is used by trusted users, data validation was skipped
 
 #TODO: Move run commands to a function to make it less verbose 
-#TODO: use sys.exit status on all functions in main()
-#TODO: Implement: setup-update-groups / rack-live-migrate
 
 import argparse
 from collections import defaultdict
@@ -63,6 +61,40 @@ def get_vms_in_host(cmp):
     )
     
     return json.loads(result.stdout)
+
+def list_dns_zones_and_records():
+    logger.info("Gathering DNS zones and records ...")
+    cmd = f"openstack {OPENSTACK_EXTRA_ARGS} zone list --all -f json -c ID"
+    result = subprocess.run(
+        cmd,
+        shell=True,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    all_zones = json.loads(result.stdout)
+    logger.debug(f"all_zones = {all_zones}")
+    all_records = []
+    for zone in all_zones:
+        cmd = f"openstack {OPENSTACK_EXTRA_ARGS} record list -f json -c name -c records --type a --all-projects {zone['id']}"
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        record = json.loads(result.stdout)
+        logger.debug(f"{record}")
+        if record:
+            all_records += record
+
+    return all_records
+
+def get_fqdn(ip, records):
+    return next((record['name'] for record in records if record['records'].strip() == ip.strip()), None)
         
 def check_env():
     logger.info("Checking the environment")
@@ -290,18 +322,19 @@ def rack_enable_disable(inventory,rack,op):
             return False
     return True
 
-
+#TODO:
+# - Check if the migrated VMs did not go to ERROR state
+# - Check that the rack is empty after the migration
 def rack_live_migrate(inventory,rack):
-    vms_in_rack = rack_list_vms(inventory, rack)
     status=True
-    filtered_fields_vms = [
+    vms_in_rack = [
             {field: vm[field] for field in ['ID', 'Name', 'Status']}
-            for sublist in vms_in_rack
+            for sublist in rack_list_vms(inventory, rack)
             for vm in sublist
         ]
-    logger.debug(f"rack_live_migrate:filtered_fields_vms= {filtered_fields_vms}")
+    logger.debug(f"rack_live_migrate:vms_in_rack= {vms_in_rack}")
     logger.info(f"Starting live-migration of the VMs hosted in the rack {rack}")
-    for vm in filtered_fields_vms:
+    for vm in vms_in_rack:
         cmd=f"openstack {OPENSTACK_EXTRA_ARGS} server migrate --live {vm['ID']}"
         logger.info(f"Live-migrating VM {vm['ID']}")
         result = subprocess.run(
@@ -310,6 +343,7 @@ def rack_live_migrate(inventory,rack):
         if result.returncode != 0:
             logger.error(f"openstack server migrate command failed: {result.stderr}")
             status=False
+    
     return status
 
 def get_vm_info(vm_id):
@@ -623,7 +657,24 @@ def nemo_refresh_crs(dry_run):
         else:
             logger.info(f"dry-run detected: Hosts section to be re-populated in CR {cr['id']} with: {hosts}")
 
+def gen_updategroup_obj(cluster_name, cluster_ns, suffix, index, parallelizm):
+    return f"""
+    apiVersion: kaas.mirantis.com/v1alpha1
+    kind: UpdateGroup
+    metadata:
+      labels:
+        cluster.sigs.k8s.io/cluster-name: {cluster_name}
+      name: {cluster_name}-{suffix}
+      namespace: {cluster_ns}
+    spec:
+      index: {index}
+      concurrentUpdates: {parallelizm}
+    """
 
+def setup_updategroups(dry_run):
+    pass
+
+#TODO: use sys.exit status on all functions in main()
 def main():
     parser = argparse.ArgumentParser(description="MOSK Compute upgrade Tool")
     
@@ -751,6 +802,9 @@ def main():
     elif args.command == 'nemo-refresh-crs':
         logger.info(f"Syncing the VMs list of the existing CRs in Nemo")
         nemo_refresh_crs(args.dry_run)
+    elif args.command == 'setup-updategroups':
+        logger.info("Setting up updateGroups and assign the nodes to them")
+        setup_updategroups(args.dry_run)
     else:
         parser.print_help()
 
