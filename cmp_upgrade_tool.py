@@ -87,7 +87,7 @@ def list_dns_zones_and_records():
             text=True
         )
         record = json.loads(result.stdout)
-        logger.debug(f"{record}")
+        logger.debug(f"all_records = {all_records}")
         if record:
             all_records += record
 
@@ -762,7 +762,7 @@ def main():
             for vm in sublist
         ]
         for vm in filtered_fields_vms:
-            print(f"{vm['ID']}\t{vm['Status']}\t{vm['Name']}")
+            print(f"{args.rack}\t{vm['ID']}\t{vm['Status']}\t{vm['Name']}")
     elif args.command == 'rack-release-lock':
         logger.info(f"Releasing lock on rack: {args.rack}")
         inventory = get_cmp_inventory()

@@ -112,3 +112,4 @@ def test_dns():
     r = cmp_upgrade_tool.list_dns_zones_and_records()
     print('='*40)
     print(r)
+    print(cmp_upgrade_tool.get_fqdn('10.236.35.83', r))
