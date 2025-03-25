@@ -89,7 +89,7 @@ def list_dns_zones_and_records():
         try:
             record = json.loads(result.stdout)
         except json.JSONDecodeError as e:
-            logger.warn("JSON can't be loaded, skipping this DNS records")
+            logger.warning("JSON can't be loaded, skipping this DNS records")
             record = None
         logger.debug(f"all_records = {all_records}")
         if record:

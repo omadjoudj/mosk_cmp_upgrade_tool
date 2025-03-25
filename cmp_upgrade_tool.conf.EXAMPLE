@@ -1,0 +1,4 @@
+[nemo]
+nemo_api_endpoint=<URL>
+nemo_api_service_user=<USER NAME>
+nemo_api_service_user_password=<PUT THE PASSWORD FROM 1PASS HERE>
