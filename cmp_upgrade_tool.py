@@ -63,7 +63,7 @@ def get_vms_in_host(cmp):
     return json.loads(result.stdout)
 
 def list_dns_zones_and_records():
-    logger.info("Gathering DNS zones and records ...")
+    logger.info("Gathering DNS zones and records")
     cmd = f"openstack {OPENSTACK_EXTRA_ARGS} zone list --all -f json -c ID"
     result = subprocess.run(
         cmd,
@@ -86,7 +86,11 @@ def list_dns_zones_and_records():
             stderr=subprocess.PIPE,
             text=True
         )
-        record = json.loads(result.stdout)
+        try:
+            record = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            logger.warn("JSON can't be loaded, skipping this DNS records")
+            record = None
         logger.debug(f"all_records = {all_records}")
         if record:
             all_records += record
@@ -366,14 +370,15 @@ def get_vm_info(vm_id):
     logger.debug(vm_info)
     return vm_info
 
-def prepare_nemo_host_entry(vm_id, rack, hypervisor):
+def prepare_nemo_host_entry(vm_id, rack, hypervisor, dns_records):
     vm_dict={}
     vm_info = get_vm_info(vm_id)
     vm_dict["vm_id"]=vm_id
     vm_dict["sd_project"]="Empty"
     vm_dict["sd_component"]="Empty" 
     try:
-        vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
+        #vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
+        vm_dict["fqdn"] = get_fqdn(extract_fip(vm_info['addresses'])[0], dns_records)
         if not vm_dict["fqdn"]:
             logger.debug(f"IP not resolvable on {vm_id}, falling back to VM name")
             vm_dict["fqdn"] = vm_info["name"]
@@ -492,6 +497,7 @@ def is_mw_allowed_now(start_time_str, end_time_str):
 def nemo_plan_crs(start_date):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
+    dns_records = list_dns_zones_and_records()
     rack_mw_start_date=start_date
     rack_mw_start_time="8:00"
     scheduled_rack_per_day_count=1
@@ -501,7 +507,7 @@ def nemo_plan_crs(start_date):
             for vm in get_vms_in_host(node[1]):
                 if not vm['Name'].startswith('healthcheck_SNAT_'):
                     logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
-                    hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1]))
+                    hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1], dns_records))
                 else:
                     logger.info(f"Skipping healthcheck_SNAT VM Rack {rack} / VM {vm['ID']}")
         
@@ -637,6 +643,7 @@ def nemo_close_crs(dry_run,cr_ids):
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
+    dns_records = list_dns_zones_and_records()
     crs_in_planned = nemo_list_crs_by_date(date="")
     crs_in_pending_deployment = nemo_list_crs_by_date(date="", status="pending_deployment")
     crs = crs_in_pending_deployment + crs_in_planned
@@ -648,7 +655,7 @@ def nemo_refresh_crs(dry_run):
             for vm in get_vms_in_host(node[1]):
                 if not vm['Name'].startswith('healthcheck_SNAT_'):
                     logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
-                    hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1]))
+                    hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1], dns_records))
                 else:
                     logger.info(f"Skipping healthcheck_SNAT VM Rack {rack} / VM {vm['ID']}")
         if not dry_run:
