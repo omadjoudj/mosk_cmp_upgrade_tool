@@ -98,7 +98,7 @@ def list_dns_zones_and_records():
     return all_records
 
 def get_fqdn(ip, records):
-    return next((record['name'] for record in records if record['records'].strip() == ip.strip()), None)
+    return next((record['name'].rstrip('.') for record in records if record['records'].strip() == ip.strip()), None)
         
 def check_env():
     logger.info("Checking the environment")
