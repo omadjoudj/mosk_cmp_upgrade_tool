@@ -627,15 +627,20 @@ def nemo_freeze(dry_run):
 
 def nemo_close_crs(dry_run,cr_ids):
     nemo_config = nemo_client.parse_config()
+    inventory = get_cmp_inventory()
     for cr_id in cr_ids:
         logger.info(f"Closing CR {cr_id}")
         cr = json.loads(nemo_client.get_cr(cr_id, **nemo_config).read())
         logger.info(f"CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
+        rack = cr['summary'].split(" ")[0].split("/")[2]
         if dry_run:
             logger.info("dry-run option detected: Closing CR was not performed")
+            logger.info(f"dry-run option detected: Not enabling the rack {rack}")
         else:
             logger.info(f"Setting CR {cr_id} status to « deployed »")
             r = nemo_client.set_cr_status(cr_id, new_status="deployed", **nemo_config)
+            logger.info(f"Enabling the rack {rack} for placement")
+            rack_enable_disable(inventory, rack, op="enable")
     return
     
 
