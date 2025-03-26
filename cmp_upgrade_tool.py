@@ -326,9 +326,8 @@ def rack_enable_disable(inventory,rack,op):
             return False
     return True
 
-#TODO:
-# - Check if the migrated VMs did not go to ERROR state
-# - Check that the rack is empty after the migration
+#TODO: Check if the migrated VMs did not go to ERROR state
+#TODO: Check that the rack is empty after the migration
 def rack_live_migrate(inventory,rack):
     status=True
     vms_in_rack = [
