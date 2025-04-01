@@ -633,14 +633,19 @@ def nemo_close_crs(dry_run,cr_ids):
         cr = json.loads(nemo_client.get_cr(cr_id, **nemo_config).read())
         logger.info(f"CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
         rack = cr['summary'].split(" ")[0].split("/")[2]
-        if dry_run:
-            logger.info("dry-run option detected: Closing CR was not performed")
-            logger.info(f"dry-run option detected: Not enabling the rack {rack}")
+        planned_end_date = datetime.strptime(cr['planned_end_date'], '%Y-%m-%dT%H:%M:%S')
+        current_datetime = datetime.now()
+        if current_datetime > planned_end_date:
+            if dry_run:
+                logger.info("dry-run option detected: Closing CR was not performed")
+                logger.info(f"dry-run option detected: Not enabling the rack {rack}")
+            else:
+                logger.info(f"Setting CR {cr_id} status to « deployed »")
+                r = nemo_client.set_cr_status(cr_id, new_status="deployed", **nemo_config)
+                logger.info(f"Enabling the rack {rack} for placement")
+                rack_enable_disable(inventory, rack, op="enable")
         else:
-            logger.info(f"Setting CR {cr_id} status to « deployed »")
-            r = nemo_client.set_cr_status(cr_id, new_status="deployed", **nemo_config)
-            logger.info(f"Enabling the rack {rack} for placement")
-            rack_enable_disable(inventory, rack, op="enable")
+            logger.error(f"Closing a future CR is not possible, wait until the planned end date/time has passed: current date/time {current_datetime} < planed date/time {planned_end_date}")
     return
     
 
