@@ -645,7 +645,7 @@ def nemo_close_crs(dry_run,cr_ids):
                 logger.info(f"Enabling the rack {rack} for placement")
                 rack_enable_disable(inventory, rack, op="enable")
         else:
-            logger.error(f"Closing a future CR is not possible, wait until the planned end date/time has passed: current date/time {current_datetime} < planed date/time {planned_end_date}")
+            logger.error(f"Closing a future CR is not possible, wait until the planned end date/time has passed: current date/time {current_datetime} < planned date/time {planned_end_date}")
     return
     
 
