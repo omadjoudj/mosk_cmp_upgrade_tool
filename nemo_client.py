@@ -108,21 +108,14 @@ def create_cr(summary, planned_start_date, planned_end_date, hosts, nemo_api_end
             logger.error(f"Nemo CR create call returned {r.status}")
         return r
         
-
 def parse_config():
     config = configparser.ConfigParser()
-    
     config_paths = [
         'cmp_upgrade_tool.conf',                    # Current directory
         os.path.expanduser('~/.cmp_upgrade_tool.conf'),  # User home directory
         os.path.expanduser('~/.config/cmp_upgrade_tool.conf')  # XDG config directory
     ]
-    
     read_files = config.read(config_paths)
-    
     if not read_files:
         raise FileNotFoundError(f"No configuration file found in any of these locations: {', '.join(config_paths)}")
-    
     return config['nemo']
-
-
