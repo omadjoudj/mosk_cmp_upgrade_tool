@@ -635,7 +635,8 @@ def nemo_close_crs(dry_run,cr_ids):
         rack = cr['summary'].split(" ")[0].split("/")[2]
         planned_end_date = datetime.strptime(cr['planned_end_date'], '%Y-%m-%dT%H:%M:%S')
         current_datetime = datetime.now()
-        if current_datetime > planned_end_date:
+        time_threshold = planned_end_date - timedelta(hours=2.5)
+        if current_datetime > time_threshold:
             if dry_run:
                 logger.info("dry-run option detected: Closing CR was not performed")
                 logger.info(f"dry-run option detected: Not enabling the rack {rack}")
@@ -645,7 +646,7 @@ def nemo_close_crs(dry_run,cr_ids):
                 logger.info(f"Enabling the rack {rack} for placement")
                 rack_enable_disable(inventory, rack, op="enable")
         else:
-            logger.error(f"Closing a future CR is not possible, wait until the planned end date/time has passed: current date/time {current_datetime} < planned date/time {planned_end_date}")
+            logger.error(f"Closing a future CR is not possible")
     return
     
 
