@@ -272,6 +272,7 @@ def rack_silence_alert(inventory,rack):
     logger.debug(inventory_filtered_by_rack)
     status=True
     for node in inventory_filtered_by_rack:
+        logger.info(f"Silencing alert on the node {node}")
         cmds = [
             f"kubectl --context mosk-{CLOUD} -n stacklight exec sts/prometheus-alertmanager -c prometheus-alertmanager -- amtool --alertmanager.url http://127.0.0.1:9093 silence add -a '{USER}'  -d 3h -c '{TOOL_NAME}: MOSK Rack Upgrade'  'node={node[1]}'", 
             f"kubectl --context mosk-{CLOUD} -n stacklight exec sts/prometheus-alertmanager -c prometheus-alertmanager -- amtool --alertmanager.url http://127.0.0.1:9093 silence add -a '{USER}'  -d 3h -c '{TOOL_NAME}: MOSK Rack Upgrade'  'host={node[1]}'", 
@@ -651,6 +652,12 @@ def nemo_close_crs(dry_run,cr_ids):
     return
     
 
+def nemo_edit_crs(dry_run, cr_ids, new_status, new_startdate):
+    nemo_config = nemo_client.parse_config()
+    inventory = get_cmp_inventory()
+    for cr_id in cr_ids:
+        logger.info(f"Editing CR {cr_id}")
+
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
@@ -689,6 +696,31 @@ def gen_updategroup_obj(cluster_name, cluster_ns, suffix, index, parallelizm):
       concurrentUpdates: {parallelizm}
     """
 
+def rack_stop_start_vms(rack, op):
+    if op not in ['stop', 'start']:
+        logger.error("rack_stop_start_vms: Unknown operation, acceptable values are: start, stop")
+        return False
+    inventory = get_cmp_inventory()
+    status=True
+    vms_in_rack = [
+            {field: vm[field] for field in ['ID', 'Name', 'Status']}
+            for sublist in rack_list_vms(inventory, rack)
+            for vm in sublist
+        ]
+    logger.debug(f"vms_in_rack= {vms_in_rack}")
+    logger.info(f"Starting {op} operation on the VMs hosted in the rack {rack}")
+    for vm in vms_in_rack:
+        cmd=f"openstack {OPENSTACK_EXTRA_ARGS} server {op} {vm['ID']}"
+        logger.info(f"Performing {op} operation on the VM {vm['ID']}")
+        result = subprocess.run(
+            cmd, shell=True, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        if result.returncode != 0:
+            logger.error(f"openstack server {op} command failed: {result.stderr}")
+            status=False
+    
+    return status
+
 def setup_updategroups(dry_run):
     pass
 
@@ -706,6 +738,12 @@ def main():
     rack_parser = subparsers.add_parser('rack-list-vms', help='List VMs on a specific rack')
     rack_parser.add_argument('rack', type=str, help='Rack name')
     
+    rack_stop_vms_parser = subparsers.add_parser('rack-stop-vms', help='Stop the VMs on a specific rack')
+    rack_stop_vms_parser.add_argument('rack', type=str, help='Rack name')
+
+    rack_start_vms_parser = subparsers.add_parser('rack-start-vms', help='Start the VMs on a specific rack')
+    rack_start_vms_parser.add_argument('rack', type=str, help='Rack name')
+
     release_parser = subparsers.add_parser('rack-release-lock', help='Release lock on a rack')
     release_parser.add_argument('rack', type=str, help='Rack name')
     release_parser.add_argument('--force-unsafe', 
@@ -738,6 +776,26 @@ def main():
                                   nargs='+',
                                   required=True,
                                   help='List of CR IDs/numbers to close')
+
+    nemo_edit_crs_parser = subparsers.add_parser('nemo-edit-crs', help='Edit CRs in Nemo')
+    nemo_edit_crs_parser.add_argument('--dry-run', 
+                          action='store_true',
+                          help='Dry run')
+    nemo_edit_crs_parser.add_argument('--cr-ids',
+                                  type=int,
+                                  nargs='+',
+                                  required=True,
+                                  help='List of CR IDs/numbers to edit')
+
+    nemo_edit_crs_parser.add_argument('--status',
+                                dest='new_status', 
+                                required=True,
+                                help='New Status, possible values: draft, pending_review, pending_approval, pending_deployment, in_progress, deployed, canceled, rolled_back, planned')
+
+    nemo_edit_crs_parser.add_argument('--start-date',
+                                dest='new_startdate',  
+                                required=True,
+                                help='New start date time value in UTC, format: YYYY-MM-DDThh:mm:ss')
 
     nemo_process_crs_parser = subparsers.add_parser('nemo-process-crs', help="Process Nemo's CRs scheduled now")
     nemo_process_crs_parser.add_argument('--dry-run', 
@@ -817,9 +875,18 @@ def main():
     elif args.command == 'nemo-close-crs':
         logger.info(f"Closing CRs in Nemo")
         nemo_close_crs(args.dry_run, args.cr_ids)
+    elif args.command == 'nemo-edit-crs':
+        logger.info(f"Editing CRs in Nemo")
+        nemo_edit_crs(args.dry_run, args.cr_ids, args.new_status, args.new_startdate)
     elif args.command == 'nemo-refresh-crs':
         logger.info(f"Syncing the VMs list of the existing CRs in Nemo")
         nemo_refresh_crs(args.dry_run)
+    elif args.command == 'rack-stop-vms':
+        logger.info(f"Stopping VMs on the rack {args.rack}")
+        rack_stop_start_vms(args.rack, op="stop")
+    elif args.command == 'rack-start-vms':
+        logger.info(f"Stopping VMs on the rack {args.rack}")
+        rack_stop_start_vms(args.rack, op="start")
     elif args.command == 'setup-updategroups':
         logger.info("Setting up updateGroups and assign the nodes to them")
         setup_updategroups(args.dry_run)
