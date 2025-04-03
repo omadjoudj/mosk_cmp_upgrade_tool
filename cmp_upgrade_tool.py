@@ -303,6 +303,7 @@ def rack_list_vms(inventory,rack):
 def rack_enable_disable(inventory,rack,op):
     inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
     logger.debug(inventory_filtered_by_rack)
+    status=True
     for node in inventory_filtered_by_rack:
         if op == 'disable':
             logger.info(f"Disabling {rack}/{node[1]} for placement")
@@ -312,7 +313,7 @@ def rack_enable_disable(inventory,rack,op):
             cmd = f"openstack {OPENSTACK_EXTRA_ARGS} compute service set --enable {node[1]} nova-compute"
         else:
             logger.error(f'Unknown operation')
-            return False
+            status = False
         result = subprocess.run(
             cmd,
             shell=True,
@@ -323,8 +324,8 @@ def rack_enable_disable(inventory,rack,op):
         )
         if result.returncode != 0:
             logger.error(f"openstack command failed: {result.stderr}")
-            return False
-    return True
+            status = False
+    return status
 
 #TODO: Check if the migrated VMs did not go to ERROR state
 #TODO: Check that the rack is empty after the migration
