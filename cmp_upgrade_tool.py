@@ -272,7 +272,7 @@ def rack_silence_alert(inventory,rack):
     logger.debug(inventory_filtered_by_rack)
     status=True
     for node in inventory_filtered_by_rack:
-        logger.info(f"Silencing the alerts on the node {node}")
+        logger.info(f"Silencing the alerts on the node {node[1]}")
         cmds = [
             f"kubectl --context mosk-{CLOUD} -n stacklight exec sts/prometheus-alertmanager -c prometheus-alertmanager -- amtool --alertmanager.url http://127.0.0.1:9093 silence add -a '{USER}'  -d 3h -c '{TOOL_NAME}: MOSK Rack Upgrade'  'node={node[1]}'", 
             f"kubectl --context mosk-{CLOUD} -n stacklight exec sts/prometheus-alertmanager -c prometheus-alertmanager -- amtool --alertmanager.url http://127.0.0.1:9093 silence add -a '{USER}'  -d 3h -c '{TOOL_NAME}: MOSK Rack Upgrade'  'host={node[1]}'", 
