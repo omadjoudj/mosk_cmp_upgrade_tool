@@ -652,11 +652,21 @@ def nemo_close_crs(dry_run,cr_ids):
     return
     
 
-def nemo_edit_crs(dry_run, cr_ids, new_status, new_startdate):
+def nemo_edit_crs(dry_run, cr_ids, new_status, new_start_date):
     nemo_config = nemo_client.parse_config()
-    inventory = get_cmp_inventory()
+    #inventory = get_cmp_inventory()
     for cr_id in cr_ids:
         logger.info(f"Editing CR {cr_id}")
+        logger.info(f"Setting new start date time of the CR {cr_id} to {new_start_date}")
+        new_end_date =  datetime.strptime(new_start_date, "%Y-%m-%d %H:%M") + timedelta(hours=3)
+        new_end_date_to_str = new_end_date.strftime("%Y-%m-%d %H:%M")
+        logger.info(f"Setting new end date time of the CR {cr_id} to {new_end_date_to_str}")
+        logger.info(f"Setting the status of CR {cr_id} to {new_status}")
+        if dry_run:
+            logger.info("dry-run detected: Nothing was changed")
+        else:
+            nemo_client.set_cr_dates(cr_id, new_start_date, new_end_date_to_str, **nemo_config)
+            nemo_client.set_cr_status(cr_id, new_status, **nemo_config)
 
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()
