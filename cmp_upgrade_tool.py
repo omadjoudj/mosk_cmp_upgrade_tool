@@ -721,6 +721,9 @@ def rack_stop_start_vms(rack, op):
     
     return status
 
+def monitor_vms(vm_list, desired_state):
+    pass
+
 def setup_updategroups(dry_run):
     pass
 
