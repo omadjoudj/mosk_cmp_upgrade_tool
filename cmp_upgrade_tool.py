@@ -652,25 +652,24 @@ def nemo_close_crs(dry_run,cr_ids):
     return
     
 
-def nemo_edit_crs(dry_run, cr_ids, new_status, new_start_date):
+def nemo_edit_crs(dry_run, cr_id, new_status, new_start_date):
     nemo_config = nemo_client.parse_config()
     #inventory = get_cmp_inventory()
-    for cr_id in cr_ids:
-        logger.info(f"Editing CR {cr_id}")
-        logger.info(f"Setting new start date time of the CR {cr_id} to {new_start_date}")
-        if is_friday_or_weekend(new_start_date.split(" ")[0]):
-            logger.warning("The provided new date is a Friday or a Weekend. Please check if it is not a mistake.")
-        new_end_date =  datetime.strptime(new_start_date, "%Y-%m-%d %H:%M") + timedelta(hours=3)
-        new_end_date_to_str = new_end_date.strftime("%Y-%m-%d %H:%M")
-        logger.info(f"Setting new end date time of the CR {cr_id} to {new_end_date_to_str}")
-        logger.info(f"Setting the status of CR {cr_id} to {new_status}")
-        if dry_run:
-            logger.info("dry-run detected: Nothing was changed")
-        else:
-            nemo_client.set_cr_dates(cr_id, new_start_date, new_end_date_to_str, **nemo_config)
-            nemo_client.set_cr_status(cr_id, new_status, **nemo_config)
-            cr = json.loads(nemo_client.get_cr(cr_id, **nemo_config).read())
-            logger.info(f"CR is now: CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
+    logger.info(f"Editing CR {cr_id}")
+    logger.info(f"Setting new start date time of the CR {cr_id} to {new_start_date}")
+    if is_friday_or_weekend(new_start_date.split(" ")[0]):
+        logger.warning("The provided new date is a Friday or a Weekend. Please check if it is not a mistake.")
+    new_end_date =  datetime.strptime(new_start_date, "%Y-%m-%d %H:%M") + timedelta(hours=3)
+    new_end_date_to_str = new_end_date.strftime("%Y-%m-%d %H:%M")
+    logger.info(f"Setting new end date time of the CR {cr_id} to {new_end_date_to_str}")
+    logger.info(f"Setting the status of CR {cr_id} to {new_status}")
+    if dry_run:
+        logger.info("dry-run detected: Nothing was changed")
+    else:
+        nemo_client.set_cr_dates(cr_id, new_start_date, new_end_date_to_str, **nemo_config)
+        nemo_client.set_cr_status(cr_id, new_status, **nemo_config)
+        cr = json.loads(nemo_client.get_cr(cr_id, **nemo_config).read())
+        logger.info(f"CR is now: CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
 
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()
@@ -710,6 +709,9 @@ def gen_updategroup_obj(cluster_name, cluster_ns, suffix, index, parallelizm):
       concurrentUpdates: {parallelizm}
     """
 
+def setup_updategroups(dry_run):
+    pass
+
 def rack_stop_start_vms(rack, op):
     if op not in ['stop', 'start']:
         logger.error("rack_stop_start_vms: Unknown operation, acceptable values are: start, stop")
@@ -738,8 +740,6 @@ def rack_stop_start_vms(rack, op):
 def monitor_vms(vm_list, desired_state):
     pass
 
-def setup_updategroups(dry_run):
-    pass
 
 #TODO: use sys.exit status on all functions in main()
 def main():
@@ -794,22 +794,21 @@ def main():
                                   required=True,
                                   help='List of CR IDs/numbers to close')
 
-    nemo_edit_crs_parser = subparsers.add_parser('nemo-edit-crs', help='Edit CRs in Nemo')
-    nemo_edit_crs_parser.add_argument('--dry-run', 
+    nemo_edit_cr_parser = subparsers.add_parser('nemo-edit-cr', help='Edit CR in Nemo')
+    nemo_edit_cr_parser.add_argument('--dry-run', 
                           action='store_true',
                           help='Dry run')
-    nemo_edit_crs_parser.add_argument('--cr-ids',
+    nemo_edit_cr_parser.add_argument('--cr-id',
                                   type=int,
-                                  nargs='+',
                                   required=True,
-                                  help='List of CR IDs/numbers to edit')
+                                  help='CR ID/number to edit')
 
-    nemo_edit_crs_parser.add_argument('--status',
+    nemo_edit_cr_parser.add_argument('--status',
                                 dest='new_status', 
                                 required=True,
                                 help='New Status, possible values: draft, pending_review, pending_approval, pending_deployment, in_progress, deployed, canceled, rolled_back, planned')
 
-    nemo_edit_crs_parser.add_argument('--start-date',
+    nemo_edit_cr_parser.add_argument('--start-date',
                                 dest='new_startdate',  
                                 required=True,
                                 help='New start date time value in UTC, format: YYYY-MM-DDThh:mm:ss')
@@ -892,9 +891,9 @@ def main():
     elif args.command == 'nemo-close-crs':
         logger.info(f"Closing CRs in Nemo")
         nemo_close_crs(args.dry_run, args.cr_ids)
-    elif args.command == 'nemo-edit-crs':
-        logger.info(f"Editing CRs in Nemo")
-        nemo_edit_crs(args.dry_run, args.cr_ids, args.new_status, args.new_startdate)
+    elif args.command == 'nemo-edit-cr':
+        logger.info(f"Editing CR in Nemo")
+        nemo_edit_crs(args.dry_run, args.cr_id, args.new_status, args.new_startdate)
     elif args.command == 'nemo-refresh-crs':
         logger.info(f"Syncing the VMs list of the existing CRs in Nemo")
         nemo_refresh_crs(args.dry_run)
