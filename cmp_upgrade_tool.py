@@ -670,7 +670,7 @@ def nemo_edit_crs(dry_run, cr_ids, new_status, new_start_date):
             nemo_client.set_cr_dates(cr_id, new_start_date, new_end_date_to_str, **nemo_config)
             nemo_client.set_cr_status(cr_id, new_status, **nemo_config)
             cr = json.loads(nemo_client.get_cr(cr_id, **nemo_config).read())
-            logger.info(f"CR updated, new values are: CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
+            logger.info(f"CR is now: CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
 
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()

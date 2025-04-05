@@ -8,19 +8,22 @@ import configparser
 import json
 import logging
 import os
+from colorlog import CustomFormatter
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
 
-formatter = logging.Formatter(
-    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-
-logger = logging.getLogger('nemo_client')
+logger = logging.getLogger("nemo_client")
 logger.setLevel(LOGLEVEL)
-logger.addHandler(handler)
+
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+
+ch.setFormatter(CustomFormatter())
+
+logger.addHandler(ch)
+
+
 
 
 def rest_client(verb, url, username, password, body=None, headers=None):
