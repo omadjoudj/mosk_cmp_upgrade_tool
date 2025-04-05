@@ -658,6 +658,8 @@ def nemo_edit_crs(dry_run, cr_ids, new_status, new_start_date):
     for cr_id in cr_ids:
         logger.info(f"Editing CR {cr_id}")
         logger.info(f"Setting new start date time of the CR {cr_id} to {new_start_date}")
+        if is_friday_or_weekend(new_start_date.split(" ")[0]):
+            logger.warning("The provided new date is a Friday or a Weekend. Please check if it is not a mistake.")
         new_end_date =  datetime.strptime(new_start_date, "%Y-%m-%d %H:%M") + timedelta(hours=3)
         new_end_date_to_str = new_end_date.strftime("%Y-%m-%d %H:%M")
         logger.info(f"Setting new end date time of the CR {cr_id} to {new_end_date_to_str}")
@@ -667,6 +669,8 @@ def nemo_edit_crs(dry_run, cr_ids, new_status, new_start_date):
         else:
             nemo_client.set_cr_dates(cr_id, new_start_date, new_end_date_to_str, **nemo_config)
             nemo_client.set_cr_status(cr_id, new_status, **nemo_config)
+            cr = json.loads(nemo_client.get_cr(cr_id, **nemo_config).read())
+            logger.info(f"CR updated, new values are: CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
 
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()
@@ -907,4 +911,7 @@ def main():
         parser.print_help()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.exception(f"{e}")
