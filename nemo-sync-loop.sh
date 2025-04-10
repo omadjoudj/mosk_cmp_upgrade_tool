@@ -1,4 +1,6 @@
 #!/bin/bash
+# ~omadjoudj
+# This is a helper script to keep the CRs (VM list in rack) up-to-date
 
 if [ $# -lt 1 ]; then
     echo "No enough args"
