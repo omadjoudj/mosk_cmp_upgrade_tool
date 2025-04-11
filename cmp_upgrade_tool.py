@@ -497,22 +497,24 @@ def is_mw_allowed_now(start_time_str, end_time_str):
     return start_time <= current_time <= end_time
 
 
-def nemo_plan_crs(start_date):
+def nemo_plan_crs(start_date, populate_nemo_hosts=False):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
-    dns_records = list_dns_zones_and_records()
+    if populate_nemo_hosts:
+        dns_records = list_dns_zones_and_records()
     rack_mw_start_date=start_date
     rack_mw_start_time="8:00"
     scheduled_rack_per_day_count=1
     for rack in get_racks(inventory):
         hosts=[]
-        for node in get_nodes_in_rack(inventory, rack):
-            for vm in get_vms_in_host(node[1]):
-                if not vm['Name'].startswith('healthcheck_SNAT_'):
-                    logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
-                    hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1], dns_records))
-                else:
-                    logger.info(f"Skipping healthcheck_SNAT VM Rack {rack} / VM {vm['ID']}")
+        if populate_nemo_hosts:
+            for node in get_nodes_in_rack(inventory, rack):
+                for vm in get_vms_in_host(node[1]):
+                    if not vm['Name'].startswith('healthcheck_SNAT_'):
+                        logger.info(f"Gathering info on Rack {rack} / VM {vm['ID']}")
+                        hosts.append(prepare_nemo_host_entry(vm['ID'],rack, node[1], dns_records))
+                    else:
+                        logger.info(f"Skipping healthcheck_SNAT VM Rack {rack} / VM {vm['ID']}")
         
         summary=f"opscare/{CLOUD}/{rack} compute nodes maintenance"
         
@@ -893,6 +895,7 @@ def main():
     elif args.command == 'nemo-plan-crs':
         logger.info(f"Creating CRs on Nemo")
         nemo_plan_crs(args.startdate)
+        nemo_refresh_crs(dry_run=False)
     elif args.command == 'nemo-process-crs':
         logger.info(f"Processing Nemo's CRs scheduled now")
         nemo_process_crs(args.dry_run)
