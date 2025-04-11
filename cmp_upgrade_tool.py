@@ -371,6 +371,8 @@ def get_vm_info(vm_id):
     logger.debug(vm_info)
     return vm_info
 
+
+
 def prepare_nemo_host_entry(vm_id, rack, hypervisor, dns_records):
     vm_dict={}
     vm_info = get_vm_info(vm_id)
@@ -670,6 +672,18 @@ def nemo_edit_crs(dry_run, cr_id, new_status, new_start_date):
         nemo_client.set_cr_status(cr_id, new_status, **nemo_config)
         cr = json.loads(nemo_client.get_cr(cr_id, **nemo_config).read())
         logger.info(f"CR is now: CR_ID={cr['id']} | CR_TITLE={cr['summary']} | CR_START={cr['planned_start_date']} | CR_END={cr['planned_end_date']} | CR_STATUS={cr['status']}")
+
+def check_cr_exist(rack, inventory):
+    nemo_config = nemo_client.parse_config()
+    inventory = get_cmp_inventory()
+    crs_in_planned = nemo_list_crs_by_date(date="")
+    crs_in_pending_deployment = nemo_list_crs_by_date(date="", status="pending_deployment")
+    crs = crs_in_pending_deployment + crs_in_planned
+    logger.debug(f"check_cr_exist : crs = {crs}")
+    for cr in crs:
+        if rack in cr["summary"]:
+            return True
+    return False
 
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()

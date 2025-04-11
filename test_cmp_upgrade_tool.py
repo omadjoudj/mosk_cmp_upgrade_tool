@@ -1,5 +1,6 @@
 import pytest
 import cmp_upgrade_tool
+import nemo_client
 import re
 from pprint import pprint
 
@@ -106,10 +107,18 @@ def test_is_mw_allowed_now():
 
     result = cmp_upgrade_tool.is_mw_allowed_now(mw_start_time_utc, mw_end_time_utc)
     print(f"Is current time between {mw_start_time_utc} and {mw_end_time_utc}? {result}")
- """
 
 def test_dns():
     r = cmp_upgrade_tool.list_dns_zones_and_records()
     print('='*40)
     print(r)
     print(cmp_upgrade_tool.get_fqdn('10.236.35.83', r))
+
+ """
+
+def test_check_cr_exist():
+    inventory = cmp_upgrade_tool.get_cmp_inventory()
+    rack_exists="z01r05b37"
+    assert(cmp_upgrade_tool.check_cr_exist(rack_exists, inventory))
+    rack_absent="XXXXXXXXX"
+    assert(cmp_upgrade_tool.check_cr_exist(rack_absent, inventory) == False)
