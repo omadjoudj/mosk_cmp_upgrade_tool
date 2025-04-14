@@ -266,7 +266,25 @@ def check_locks():
     if status:
         logger.info("All locks were OK. Upgrade is safe to be started")
 
+def global_silence_alerts():
+    alerts = ["AllVMsOnHypervisorUnresponsive", "MultipleVMsOnDifferentRacksUnresponsive", "VMMonAffectedProjects", "VMMonSNATCheckComputeFail", "VMMonSNATFlapCheckFail"]
+    logger.info(f"Silencing alerts: {', '.join(alerts)}")
+    status=True
+    for alert in alerts:
+        result = subprocess.run(
+            f"kubectl --context mosk-{CLOUD} -n stacklight exec sts/prometheus-alertmanager -c prometheus-alertmanager -- amtool --alertmanager.url http://127.0.0.1:9093 silence add -a '{USER}'  -d 3h -c '{TOOL_NAME}: MOSK Rack Upgrade'  'alertname={alert}'",
+            capture_output=True,
+            shell=True
+        )
+        if result.returncode != 0:
+            logger.error(f"kubectl command failed: {result.stderr}")
+            status=status and False
+        else:
+            status=status and True
+    return status
+
 def rack_silence_alert(inventory,rack):
+    global_silence_alerts()
     logger.info(f"Silencing alert for the rack: {rack}")
     inventory_filtered_by_rack=[row for row in inventory if row[3] == rack]
     logger.debug(inventory_filtered_by_rack)
