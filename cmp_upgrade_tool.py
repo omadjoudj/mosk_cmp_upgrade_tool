@@ -348,9 +348,11 @@ def rack_enable_disable(inventory,rack,op):
 
 #TODO: Check if the migrated VMs did not go to ERROR state
 #TODO: Check that the rack is empty after the migration
-def rack_live_migrate(inventory,rack,all=True):
+def rack_live_migrate(inventory,rack,all=True,ignored_projects=None):
+    if ignored_projects is None:
+        ignored_projects = ["mysql-replication-chains", "openstack"]
+    
     status=True
-    ignored_projects=["mysql-replication-chains", "openstack"]
     vms_in_rack = [
             {field: vm[field] for field in ['ID', 'Name', 'Status']}
             for sublist in rack_list_vms(inventory, rack)
@@ -384,7 +386,7 @@ def rack_live_migrate(inventory,rack,all=True):
                 logger.error(f"openstack server migrate command failed: {result.stderr}")
                 status=False
         else:
-            logger.warning(f"Ignoring live-migration of the VM {vm_id} / {vm_info['name']} since it's in the ignore project list")
+            logger.warning(f"Ignoring live-migration of the VM {vm_id} / {vm_info['name']}")
             status=True
     
     return status
@@ -833,6 +835,11 @@ def main():
                                 action='store_true',
                                 help='live-migrate everything including large MySQL and healthcheck_SNAT VMs'
                                 )
+    migrate_parser.add_argument('--ignored-projects',
+                                  type=str,
+                                  nargs='+',
+                                  required=False,
+                                  help='List of projects, which any VMs belonging to them will get ignored in the live-migration. By default "mysql-replication-chains", "openstack"')
     
     silence_parser = subparsers.add_parser('rack-silence', help='Silence notifications on a rack')
     silence_parser.add_argument('rack', type=str, help='Rack name')
@@ -929,7 +936,7 @@ def main():
     elif args.command == 'rack-live-migrate':
         logger.info(f"Preparing the live-migration of VMs hosted in rack: {args.rack}")
         inventory = get_cmp_inventory()
-        rack_live_migrate(inventory, args.rack, args.all)
+        rack_live_migrate(inventory, args.rack, args.all, args.ignored_projects)
     elif args.command == 'rack-silence':
         logger.info(f"Silencing notifications on rack: {args.rack}")
         inventory = get_cmp_inventory()
