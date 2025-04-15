@@ -348,8 +348,9 @@ def rack_enable_disable(inventory,rack,op):
 
 #TODO: Check if the migrated VMs did not go to ERROR state
 #TODO: Check that the rack is empty after the migration
-def rack_live_migrate(inventory,rack):
+def rack_live_migrate(inventory,rack,all=True):
     status=True
+    ignored_projects=["mysql-replication-chains", "openstack"]
     vms_in_rack = [
             {field: vm[field] for field in ['ID', 'Name', 'Status']}
             for sublist in rack_list_vms(inventory, rack)
@@ -358,14 +359,33 @@ def rack_live_migrate(inventory,rack):
     logger.debug(f"rack_live_migrate:vms_in_rack= {vms_in_rack}")
     logger.info(f"Starting live-migration of the VMs hosted in the rack {rack}")
     for vm in vms_in_rack:
-        cmd=f"openstack {OPENSTACK_EXTRA_ARGS} server migrate --live {vm['ID']}"
-        logger.info(f"Live-migrating VM {vm['ID']}")
-        result = subprocess.run(
-            cmd, shell=True, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-        if result.returncode != 0:
-            logger.error(f"openstack server migrate command failed: {result.stderr}")
-            status=False
+        if all==False:
+            vm_dict={}
+            vm_id=vm['ID']
+            vm_info = get_vm_info(vm_id)
+            vm_dict["vm_id"]=vm_id
+            vm_dict["sd_project"]="Empty"
+            vm_dict["sd_component"]="Empty" 
+            project_info = get_project_info(vm_info["project_id"])
+            try:
+                tags_dict = dict(tag.split('=') for tag in project_info["tags"])
+                vm_dict["sd_project"] = tags_dict["sd_project"]
+                vm_dict["sd_component"] = tags_dict["sd_component"]
+            except KeyError:
+                logger.warning(f"Tags do not exist for the vm: {vm_id}")
+
+        if all==True or not (vm_dict["sd_project"] in ignored_projects):
+            cmd=f"openstack {OPENSTACK_EXTRA_ARGS} server migrate --live {vm['ID']}"
+            logger.info(f"Live-migrating VM {vm['ID']}")
+            result = subprocess.run(
+                cmd, shell=True, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            if result.returncode != 0:
+                logger.error(f"openstack server migrate command failed: {result.stderr}")
+                status=False
+        else:
+            logger.warning(f"Ignoring live-migration of the VM {vm_id} / {vm_info['name']} since it's in the ignore project list")
+            status=True
     
     return status
 
@@ -809,6 +829,10 @@ def main():
     
     migrate_parser = subparsers.add_parser('rack-live-migrate', help='Live migrate VMs in a rack')
     migrate_parser.add_argument('rack', type=str, help='Rack name')
+    migrate_parser.add_argument('--all',
+                                action='store_true',
+                                help='live-migrate everything including large MySQL and healthcheck_SNAT VMs'
+                                )
     
     silence_parser = subparsers.add_parser('rack-silence', help='Silence notifications on a rack')
     silence_parser.add_argument('rack', type=str, help='Rack name')
@@ -905,7 +929,7 @@ def main():
     elif args.command == 'rack-live-migrate':
         logger.info(f"Preparing the live-migration of VMs hosted in rack: {args.rack}")
         inventory = get_cmp_inventory()
-        rack_live_migrate(inventory, args.rack)
+        rack_live_migrate(inventory, args.rack, args.all)
     elif args.command == 'rack-silence':
         logger.info(f"Silencing notifications on rack: {args.rack}")
         inventory = get_cmp_inventory()
