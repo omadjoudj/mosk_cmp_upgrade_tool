@@ -893,10 +893,6 @@ def main():
                           action='store_true',
                           help='Dry run')
 
-    setup_updategroups_parser = subparsers.add_parser('setup-updategroups', help="Create and apply the updateGroups")
-    setup_updategroups_parser.add_argument('--dry-run', 
-                          action='store_true',
-                          help='Dry run')
     
     args = parser.parse_args()
     
@@ -942,8 +938,10 @@ def main():
         inventory = get_cmp_inventory()
         rack_silence_alert(inventory, args.rack)
     elif args.command == 'nemo-plan-crs':
+        logger.info("Setting up updateGroups and assign the nodes to them")
+        setup_updategroups(args.dry_run)
         logger.info(f"Creating CRs on Nemo")
-        nemo_plan_crs(args.startdate)
+        nemo_plan_crs()
         nemo_refresh_crs(dry_run=False)
     elif args.command == 'nemo-process-crs':
         logger.info(f"Processing Nemo's CRs scheduled now")
@@ -969,9 +967,6 @@ def main():
     elif args.command == 'rack-start-vms':
         logger.info(f"Stopping VMs on the rack {args.rack}")
         rack_stop_start_vms(args.rack, op="start")
-    elif args.command == 'setup-updategroups':
-        logger.info("Setting up updateGroups and assign the nodes to them")
-        setup_updategroups(args.dry_run)
     else:
         parser.print_help()
 
