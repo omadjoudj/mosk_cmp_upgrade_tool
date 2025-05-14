@@ -420,8 +420,8 @@ def prepare_nemo_host_entry(vm_id, rack, hypervisor, dns_records):
     vm_dict["sd_project"]="Empty"
     vm_dict["sd_component"]="Empty" 
     try:
-        #vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
-        vm_dict["fqdn"] = get_fqdn(extract_fip(vm_info['addresses'])[0], dns_records)
+        vm_dict["fqdn"] = get_reverse_dns(extract_fip(vm_info['addresses'])[0])
+        #vm_dict["fqdn"] = get_fqdn(extract_fip(vm_info['addresses'])[0], dns_records)
         if not vm_dict["fqdn"]:
             logger.debug(f"IP not resolvable on {vm_id}, falling back to VM name")
             vm_dict["fqdn"] = vm_info["name"]
@@ -730,7 +730,8 @@ def check_cr_exist(rack, inventory):
 def nemo_refresh_crs(dry_run):
     nemo_config = nemo_client.parse_config()
     inventory = get_cmp_inventory()
-    dns_records = list_dns_zones_and_records()
+    #dns_records = list_dns_zones_and_records()
+    dns_records = []
     crs_in_planned = nemo_list_crs_by_date(date="")
     crs_in_pending_deployment = nemo_list_crs_by_date(date="", status="pending_deployment")
     crs = crs_in_pending_deployment + crs_in_planned
@@ -887,6 +888,10 @@ def main():
     nemo_freeze_racks_parser.add_argument('--dry-run', 
                           action='store_true',
                           help='Dry run')
+
+    #nemo_freeze_racks_parser.add_argument('--live-migrate', 
+    #                      action='store_true',
+    #                      help='Live-migrate certain workload in addition to disabling racks for placement')
 
     nemo_refresh_crs_parser = subparsers.add_parser('nemo-refresh-crs', help="Sync the VMs list to existing CRs")
     nemo_refresh_crs_parser.add_argument('--dry-run', 
